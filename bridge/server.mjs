@@ -20,9 +20,9 @@
  */
 import http from 'node:http';
 import crypto from 'node:crypto';
-import os from 'node:os';
 import { upgrade } from './ws.mjs';
 import { resolveToken } from './config.mjs';
+import { rankAddresses } from './net.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -215,16 +215,6 @@ server.on('upgrade', (req, socket) => {
   });
 });
 
-function localAddresses() {
-  const out = [];
-  for (const list of Object.values(os.networkInterfaces())) {
-    for (const net of list || []) {
-      if (net.family === 'IPv4' && !net.internal) out.push(net.address);
-    }
-  }
-  return out;
-}
-
 /**
  * A bare `listen` failure surfaces as an unhandled 'error' event and a stack
  * trace, which tells the user nothing. The common case by far is a second copy
@@ -251,7 +241,7 @@ server.on('error', async (err) => {
     console.error('');
     console.error('  多半是之前启动的那个窗口还开着 —— 直接用它就行，不用再起一个。');
     console.error(`  真要再起一个，换端口：node bridge/server.mjs --port ${PORT + 1}`);
-    console.error(`  找不到那个窗口了：Windows 用任务管理器结束 node.exe，`);
+    console.error('  找不到那个窗口了：Windows 用任务管理器结束 node.exe，');
     console.error(`                    macOS/Linux 用 lsof -i :${PORT} 找到后 kill。`);
   } else {
     console.error(`\n端口 ${PORT} 被其它程序占用了。`);
@@ -265,7 +255,8 @@ server.on('error', async (err) => {
 });
 
 server.listen(PORT, HOST, () => {
-  const lan = localAddresses()[0] || '127.0.0.1';
+  const addresses = rankAddresses();
+  const lan = addresses[0]?.address || '127.0.0.1';
   console.log('Auto Verification Code — SMS bridge');
   console.log(`  listening        http://${HOST}:${PORT}`);
   // With --quiet the output is usually being redirected to a file, and neither
@@ -287,6 +278,20 @@ server.listen(PORT, HOST, () => {
   console.log('  On your phone, forward verification SMS to:');
   console.log(`    POST http://${lan}:${PORT}/sms?token=${TOKEN}`);
   console.log(`    body {"text":"[Bank] Your code is 123456"}`);
+  if (addresses.length > 1) {
+    console.log('');
+    console.log('    手机连不上就换个地址试试（本机所有网卡）：');
+    for (const { name, address, virtual } of addresses) {
+      console.log(`      http://${address}:${PORT}    ${name}${virtual ? '  ← 虚拟网卡，手机通常连不上' : ''}`);
+    }
+  }
+  console.log('');
+  console.log('  手机先用浏览器打开 http://<上面的地址>:' + PORT + '/status 验证能不能通。');
+  if (process.platform === 'win32') {
+    console.log('  打不开多半是防火墙：管理员 PowerShell 里执行');
+    console.log(`    New-NetFirewallRule -DisplayName "Auto Verification Code" \``);
+    console.log(`      -Direction Inbound -Protocol TCP -LocalPort ${PORT} -Action Allow -Profile Private`);
+  }
   console.log('');
   console.log('  Try it now:');
   console.log(`    curl -X POST "http://127.0.0.1:${PORT}/sms?token=${TOKEN}" \\`);
