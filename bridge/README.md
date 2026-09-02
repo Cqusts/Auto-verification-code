@@ -6,7 +6,17 @@
 node bridge/server.mjs [--port 8787] [--host 0.0.0.0] [--token secret] [--history 50] [--quiet]
 ```
 
-未指定 `--token` 时会生成一个随机令牌并打印。也可用环境变量 `AVC_PORT` / `AVC_HOST` / `AVC_TOKEN`。
+令牌只在第一次运行时生成，之后持久化保存，重启和重开机都不会变（路径见 [docs/AUTOSTART.md](../docs/AUTOSTART.md#令牌)）。也可用 `--token` 或环境变量 `AVC_TOKEN` 覆盖；`AVC_PORT` / `AVC_HOST` 同理。
+
+`--quiet` 会同时抑制收到的短信内容和令牌，只留启动横幅与错误 —— 自启服务用的就是这个模式，避免验证码明文落进日志文件。
+
+开机自启：
+
+```bash
+npm run autostart:install     # 安装
+npm run autostart             # 状态
+npm run autostart:uninstall   # 关闭
+```
 
 ## 接口
 

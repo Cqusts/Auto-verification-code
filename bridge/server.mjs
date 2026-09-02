@@ -22,6 +22,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import { upgrade } from './ws.mjs';
+import { resolveToken } from './config.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name, fallback) => {
@@ -31,7 +32,8 @@ const flag = (name, fallback) => {
 
 const PORT = Number(flag('port', process.env.AVC_PORT || 8787));
 const HOST = flag('host', process.env.AVC_HOST || '0.0.0.0');
-const TOKEN = flag('token', process.env.AVC_TOKEN || crypto.randomBytes(9).toString('base64url'));
+// Persisted, so the token stays valid across restarts and reboots.
+const { token: TOKEN, source: TOKEN_SOURCE, file: TOKEN_FILE } = resolveToken(flag('token', ''));
 const HISTORY = Number(flag('history', 50));
 const QUIET = args.includes('--quiet');
 
@@ -227,7 +229,16 @@ server.listen(PORT, HOST, () => {
   const lan = localAddresses()[0] || '127.0.0.1';
   console.log('Auto Verification Code — SMS bridge');
   console.log(`  listening        http://${HOST}:${PORT}`);
-  console.log(`  token            ${TOKEN}`);
+  // --quiet is what the autostart services use: their stdout lands in a log
+  // file, and neither the codes nor the token belong on disk in cleartext.
+  if (QUIET) {
+    console.log(`  token            (see ${TOKEN_FILE})`);
+  } else {
+    console.log(`  token            ${TOKEN}`);
+    if (TOKEN_SOURCE === 'generated') console.log(`  token saved to   ${TOKEN_FILE}`);
+    else if (TOKEN_SOURCE === 'file') console.log(`  token read from  ${TOKEN_FILE}`);
+  }
+  if (QUIET) return;
   console.log('');
   console.log('  In the extension options → 短信来源:');
   console.log(`    WebSocket URL  ws://127.0.0.1:${PORT}/ws`);

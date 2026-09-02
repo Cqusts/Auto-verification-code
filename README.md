@@ -66,6 +66,16 @@ token          xxxxxxxxxxxx
 
 然后让手机把验证码短信转发到桥接服务（Android 用「短信转发器」类 App，iOS 用「快捷指令」自动化），详见 **[docs/SMS-SETUP.md](docs/SMS-SETUP.md)**。
 
+不想每次开机手动敲命令，就装成开机自启，一次配置长期生效：
+
+```bash
+npm run autostart:install     # 安装（不需要管理员权限）
+npm run autostart             # 查看状态和令牌
+npm run autostart:uninstall   # 关掉自启
+```
+
+Windows / macOS / Linux 都支持，含手动关闭步骤，详见 **[docs/AUTOSTART.md](docs/AUTOSTART.md)**。
+
 先不接手机也能验证整条链路：
 
 ```bash
@@ -81,6 +91,7 @@ curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
 ## 文档
 
 - **[docs/SMS-SETUP.md](docs/SMS-SETUP.md)** — 各种把短信送进浏览器的方式（Android / iOS / 剪贴板 / 自建接口）
+- **[docs/AUTOSTART.md](docs/AUTOSTART.md)** — 桥接服务开机自启的安装与关闭
 - **[docs/OCR.md](docs/OCR.md)** — 识别率调优，以及接入自建 ddddocr / PaddleOCR 服务
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — 代码结构与数据流
 - **[bridge/README.md](bridge/README.md)** — 桥接服务的接口说明
