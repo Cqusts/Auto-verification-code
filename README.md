@@ -1,60 +1,83 @@
-# Auto Verification Code · 自动验证码
+<h1 align="center">Auto Verification Code</h1>
 
-Microsoft Edge / Chromium 扩展（Manifest V3）：**自动接收短信验证码并填写**，并且**在本地离线识别图片验证码**。
+<p align="center">
+  自动接收短信验证码并填写，本地离线识别图片验证码的 Microsoft Edge / Chromium 扩展。
+</p>
 
-所有识别都在你自己的电脑上完成，图片和验证码不会被上传到任何第三方服务。
+<p align="center">
+  <a href="https://github.com/Cqusts/Auto-verification-code/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Cqusts/Auto-verification-code/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Manifest V3" src="https://img.shields.io/badge/manifest-v3-brightgreen.svg">
+  <img alt="Browsers" src="https://img.shields.io/badge/Edge%20%7C%20Chrome-supported-0078D7.svg">
+  <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-lightgrey.svg">
+</p>
+
+<p align="center">
+  <img src="docs/images/in-action.png" alt="扩展自动填入短信验证码并识别图片验证码" width="720">
+</p>
 
 ---
+
+## 这是什么
+
+登录时那两件烦人的事 —— 切到手机抄验证码、眯着眼辨认图片里的四个字符 —— 交给浏览器自动完成。
+
+- **短信验证码**：验证码到手机后自动出现在网页输入框里
+- **图片验证码**：自动截取验证码图片、本地识别、填入
+
+识别全程在你自己的机器上完成。图片不上传，验证码不落盘，不经过任何第三方服务。
 
 ## 功能
 
-| 能力 | 说明 |
+| | |
 | --- | --- |
-| 短信验证码自动填写 | 从你自己运行的本地桥接服务接收短信，自动解析出验证码并填入页面 |
-| 图片验证码识别 | 内置离线 OCR（Tesseract WASM），自动截取验证码图片、预处理、识别并填入 |
-| 智能字段识别 | 区分「短信验证码框」与「图片验证码框」，支持分格输入框、Shadow DOM、iframe |
-| 多来源 | WebSocket 推送 / HTTP 轮询 / 剪贴板 / 手动粘贴 |
-| 站点规则 | 全局黑名单，或只在白名单站点生效 |
-| 安全默认值 | 自动提交默认关闭；验证码只存在内存中，浏览器关闭即清除 |
-
----
+| **短信验证码自动填写** | 从你自己运行的本地桥接服务接收短信，打分式解析出验证码后填入页面 |
+| **图片验证码识别** | 内置 Tesseract WASM 离线 OCR，自动预处理（二值化、去噪、放大）后识别 |
+| **智能字段识别** | 区分「短信验证码框」与「图片验证码框」，支持分格输入框、Shadow DOM、iframe |
+| **多种短信来源** | WebSocket 推送 / HTTP 轮询 / 剪贴板 / 手动粘贴 |
+| **开机自启** | 一条命令把桥接服务装成系统服务，Windows / macOS / Linux 均支持 |
+| **站点规则** | 全局黑名单，或只在白名单站点生效 |
+| **安全默认值** | 自动提交默认关闭；验证码只存在内存中，浏览器关闭即清除 |
 
 ## 安装
 
-1. 克隆或下载本仓库。
-2. 准备离线 OCR 资源（仓库已包含，若缺失则执行）：
-   ```bash
-   npm run vendor
-   ```
-3. 打开 Edge，地址栏输入 `edge://extensions/`。
-4. 打开左下角 **开发人员模式**。
-5. 点击 **加载解压缩的扩展**，选择仓库中的 `extension/` 目录。
+尚未上架扩展商店，目前以开发者模式加载：
 
-安装后已经打开的标签页会被自动注入，不需要逐个刷新。
+```bash
+git clone https://github.com/Cqusts/Auto-verification-code.git
+cd Auto-verification-code
+```
+
+1. 打开 Edge，地址栏输入 `edge://extensions/`
+2. 打开左下角 **开发人员模式**
+3. 点击 **加载解压缩的扩展**，选择仓库中的 `extension/` 目录
+
+装好即可用，**不需要 `npm install`** —— 项目零运行时依赖，离线 OCR 资源已随仓库提供。安装后已经打开的标签页会被自动注入，不必逐个刷新。
 
 > Chrome / Chromium 同样适用：`chrome://extensions/` → 开发者模式 → 加载已解压的扩展程序。
->
-> 打包成 zip：`npm run build`，产物在 `dist/`。
-
----
+> 打包成 zip 分发：`npm run build`，产物在 `dist/`。
 
 ## 快速开始
 
-### 1）图片验证码 —— 装好就能用
+### 图片验证码 —— 零配置
 
-无需任何配置。打开带图片验证码的登录页，扩展会自动找到验证码图片、识别并填入输入框。
+打开带图片验证码的登录页即可。扩展会自动找到验证码图片、识别并填入。
 
-在 **设置 → 图片验证码 → 识别测试** 里可以拖入一张验证码图片，直观看到预处理效果和识别结果，再据此调整参数。
+想调参或看识别效果，去 **设置 → 图片验证码 → 识别测试**，拖入一张验证码图片，会并排显示预处理前后的图和识别结果。
 
-### 2）短信验证码 —— 需要一个本地桥接
+<p align="center">
+  <img src="docs/images/options.png" alt="设置页 · 图片验证码" width="680">
+</p>
 
-浏览器无法直接读取手机短信，所以需要一条「手机 → 电脑 → 浏览器」的通路。仓库自带一个零依赖的参考实现：
+### 短信验证码 —— 需要一个本地桥接
+
+浏览器读不到手机短信，所以需要一条「手机 → 电脑 → 浏览器」的通路。仓库自带零依赖的参考实现：
 
 ```bash
 npm run bridge
 ```
 
-启动后终端会打印一个随机令牌和三行配置：
+终端会打印令牌和三行配置：
 
 ```
 WebSocket URL  ws://127.0.0.1:8787/ws
@@ -62,21 +85,9 @@ HTTP URL       http://127.0.0.1:8787/latest
 token          xxxxxxxxxxxx
 ```
 
-把这些填进 **扩展设置 → 短信来源 → WebSocket 推送**，点「测试连接」确认显示「连接成功」。
+填进 **扩展设置 → 短信来源 → WebSocket 推送**，点「测试连接」确认成功。
 
-然后让手机把验证码短信转发到桥接服务（Android 用「短信转发器」类 App，iOS 用「快捷指令」自动化），详见 **[docs/SMS-SETUP.md](docs/SMS-SETUP.md)**。
-
-不想每次开机手动敲命令，就装成开机自启，一次配置长期生效：
-
-```bash
-npm run autostart:install     # 安装（不需要管理员权限）
-npm run autostart             # 查看状态和令牌
-npm run autostart:uninstall   # 关掉自启
-```
-
-Windows / macOS / Linux 都支持，含手动关闭步骤，详见 **[docs/AUTOSTART.md](docs/AUTOSTART.md)**。
-
-先不接手机也能验证整条链路：
+不接手机也能先验证整条链路：
 
 ```bash
 curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
@@ -86,17 +97,29 @@ curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
 
 页面上的验证码输入框应当立刻被填上 `123456`。
 
----
+然后让手机把验证码短信转发过来 —— Android 用「短信转发器」类 App，iOS 用系统自带的「快捷指令」自动化，两者的完整步骤见 [docs/SMS-SETUP.md](docs/SMS-SETUP.md)。
+
+不想每次开机手动启动，装成自启即可：
+
+```bash
+npm run autostart:install     # 安装（不需要管理员权限）
+npm run autostart             # 查看状态和令牌
+npm run autostart:uninstall   # 关闭自启
+```
+
+<p align="center">
+  <img src="docs/images/popup.png" alt="扩展弹窗" width="320">
+</p>
 
 ## 文档
 
-- **[docs/SMS-SETUP.md](docs/SMS-SETUP.md)** — 各种把短信送进浏览器的方式（Android / iOS / 剪贴板 / 自建接口）
-- **[docs/AUTOSTART.md](docs/AUTOSTART.md)** — 桥接服务开机自启的安装与关闭
-- **[docs/OCR.md](docs/OCR.md)** — 识别率调优，以及接入自建 ddddocr / PaddleOCR 服务
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — 代码结构与数据流
-- **[bridge/README.md](bridge/README.md)** — 桥接服务的接口说明
-
----
+| 文档 | 内容 |
+| --- | --- |
+| [SMS-SETUP.md](docs/SMS-SETUP.md) | 把短信送进浏览器的四种方式（Android / iOS / 剪贴板 / 自建接口） |
+| [AUTOSTART.md](docs/AUTOSTART.md) | 桥接服务开机自启的安装与关闭，三个平台 |
+| [OCR.md](docs/OCR.md) | 识别率调优对照表，接入自建 ddddocr / PaddleOCR |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 代码结构、数据流与关键设计取舍 |
+| [bridge/README.md](bridge/README.md) | 桥接服务的接口说明 |
 
 ## 隐私与安全
 
@@ -108,46 +131,62 @@ curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
 
 扩展申请 `<all_urls>` 主机权限，是因为验证码可能出现在任何站点，且跨域验证码图片需要读取像素。若只在少数站点使用，请在 **设置 → 站点规则** 中切换到「仅白名单站点」。
 
----
+## 已知限制
+
+- 内置 OCR 擅长「较清晰的数字 / 英文字母」验证码。**滑块、点选文字、图片旋转、算术题、reCAPTCHA、hCaptcha 等交互式验证不在支持范围内**，扩展会直接忽略。
+- 干扰严重、字符粘连的验证码识别率有限，可调整预处理参数，或改接自建 OCR 服务，见 [docs/OCR.md](docs/OCR.md)。
+- 短信通路依赖你自己的转发方案；扩展本身不能读取手机短信，这是浏览器沙箱的硬限制。
 
 ## 排错
 
 **「填写失败：Could not establish connection. Receiving end does not exist.」**
-这是浏览器在说「这个标签页里没有内容脚本」。扩展在安装、更新或重新加载时会自动注入所有已打开的标签页，弹窗里的按钮也会在失败时自动补注入一次，所以正常情况下不该再看到它。如果仍然出现：该页面多半是浏览器内置页（`edge://`、扩展商店、PDF 阅读器），扩展无法在这类页面上运行；换普通网页即可。手动刷新一次页面也一定能恢复。
+浏览器在说「这个标签页里没有内容脚本」。扩展在安装、更新和启动时会自动注入所有已打开的标签页，弹窗按钮失败时也会自动补注入，正常情况下不该看到它。若仍出现：该页面多半是浏览器内置页（`edge://`、扩展商店、PDF 阅读器），扩展无法在这类页面运行。刷新一次页面也一定能恢复。
 
-**弹窗显示「页面脚本未注入（请刷新页面）」** —— 同上，刷新即可；若刷新后仍显示，看一眼 `edge://extensions/` 里扩展是否处于启用状态。
+**短信来了但没填。** 按顺序查：桥接终端有没有打印那条短信 → 打印里的 `N client(s)` 是不是 0（0 表示扩展没连上，去设置点「测试连接」）→ 弹窗「最近验证码」有没有出现（有则说明解析成功，是页面上没找到输入框）→ 设置里开启「输出调试日志」后在「高级 → 运行日志」看具体原因。
 
-**短信来了但没填。** 按这个顺序查：桥接服务终端有没有打印那条短信 → 打印里的 `N client(s)` 是不是 0（0 表示扩展没连上，去设置里点「测试连接」）→ 弹窗里「最近验证码」有没有出现（有则说明解析成功，是页面上没找到输入框）→ 设置里开启「输出调试日志」后在「高级 → 运行日志」看具体原因。
+**验证码解析错了。** 在弹窗里把整条短信粘进去点「解析并填写」，能直接看出解析结果。取错数字就去 **设置 → 常规** 调「识别关键词」和长度范围。
 
-**验证码解析错了。** 在弹窗里把整条短信粘进去点「解析并填写」，能直接看出解析结果。若确实取错了数字，去 **设置 → 常规** 调「识别关键词」和长度范围。
-
-**图片验证码识别不准。** 用 **设置 → 图片验证码 → 识别测试** 拖入图片，先看「预处理后」那张图 —— 人眼都费劲的话 OCR 一定不行。调参对照表在 [docs/OCR.md](docs/OCR.md)。
-
----
-
-## 已知限制
-
-- 内置 OCR 擅长「较清晰的数字 / 英文字母」验证码。**滑块、点选、旋转、reCAPTCHA、hCaptcha 等交互式验证码不在支持范围内**，扩展会直接忽略。
-- 干扰严重、字符粘连的验证码识别率有限，可在设置里调整预处理参数，或改接自建 OCR 服务。
-- 短信通路依赖你自己的转发方案；扩展本身不能读取手机。
-
----
+**图片验证码识别不准。** 用识别测试拖入图片，先看「预处理后」那张 —— 人眼都费劲的话 OCR 一定不行。调参对照表见 [docs/OCR.md](docs/OCR.md)。
 
 ## 开发
 
 ```bash
-npm run check          # 静态检查：语法、JSON、manifest 引用、依赖资源
-npm test               # 上面 + 短信解析 / 桥接协议 / 桥接服务 端到端
+npm run check          # 静态检查：语法、JSON、manifest 引用、文档链接、依赖资源
+npm test               # 上面 + 短信解析 / 桥接协议 / 桥接服务 / 自启安装器
 npm run test:browser   # 追加：真实 Chromium 加载扩展跑完整链路（较慢）
 npm run build          # 打包 dist/*.zip
+npm run vendor         # 重新下载离线 OCR 资源
+npm run screenshots    # 重新生成 README 里的截图
 ```
 
-浏览器测试需要 Playwright 的 Chromium。测试会真实地：加载扩展 → 连接桥接 → 推送一条短信 → 断言输入框被填上 → 渲染一张验证码图片 → 断言被正确识别。
+浏览器测试是真的：加载扩展 → 连接桥接 → 推送一条短信 → 断言输入框被填上 → 渲染一张带干扰线的验证码 → 断言被正确识别。需要 Playwright 的 Chromium。
 
----
+### 项目结构
+
+```
+extension/            扩展本体（Manifest V3，无构建步骤）
+  src/common/         三个上下文共用：配置、短信解析、特征库
+  src/background/     service worker：消息路由、验证码仓库、站点规则
+  src/offscreen/      长连接与 OCR：桥接客户端、图像预处理、Tesseract
+  src/content/        页面侧：字段识别、拟真填写、验证码取图
+  src/popup|options/  界面
+  vendor/tesseract/   离线 OCR 资源
+bridge/               零依赖短信桥接服务（含手写 WebSocket 实现）+ 自启安装器
+scripts/              取依赖、生成图标、检查、测试、打包、截图
+test/fixtures/        浏览器端到端测试用的页面
+docs/                 文档
+```
+
+设计取舍与数据流见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
+## 贡献
+
+欢迎 Issue 和 PR。提 PR 前请确保 `npm test` 通过；改动扩展本体时也请跑一遍 `npm run test:browser`。
+
+新增站点适配尤其欢迎 —— 如果某个网站的验证码没被正确识别，请在 Issue 里附上该字段的 `name` / `id` / `placeholder` 和验证码图片的样子。
 
 ## License
 
-MIT — 见 [LICENSE](LICENSE)。
+[MIT](LICENSE)
 
-内置 [Tesseract.js](https://github.com/naptha/tesseract.js)（Apache-2.0）与 [tessdata](https://github.com/tesseract-ocr/tessdata)（Apache-2.0）。
+内置 [Tesseract.js](https://github.com/naptha/tesseract.js)（Apache-2.0）与 [tessdata](https://github.com/tesseract-ocr/tessdata) 语言模型（Apache-2.0）。

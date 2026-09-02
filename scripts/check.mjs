@@ -37,6 +37,69 @@ function parseModule(source, filename) {
   new vm.SourceTextModule(source, { identifier: filename });
 }
 
+/** GitHub's heading-anchor rules, close enough for CJK headings too. */
+function slugify(heading) {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}\s-]/gu, '')
+    .replace(/\s+/g, '-');
+}
+
+async function markdownFiles(dir, out = []) {
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (['node_modules', '.git', 'dist', 'vendor'].includes(entry.name)) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) await markdownFiles(full, out);
+    else if (entry.name.endsWith('.md')) out.push(full);
+  }
+  return out;
+}
+
+/** Relative links and images in the docs must actually resolve. */
+async function checkMarkdownLinks() {
+  const files = await markdownFiles(ROOT);
+  const anchorsOf = new Map();
+
+  for (const file of files) {
+    const src = await readFile(file, 'utf8');
+    anchorsOf.set(
+      file,
+      new Set([...src.matchAll(/^#{1,6}\s+(.+?)\s*$/gm)].map((m) => slugify(m[1]))),
+    );
+  }
+
+  for (const file of files) {
+    const src = await readFile(file, 'utf8');
+    const rel = path.relative(ROOT, file);
+    const targets = [
+      ...[...src.matchAll(/\[[^\]]*\]\(([^)\s]+)\)/g)].map((m) => m[1]),
+      ...[...src.matchAll(/<img[^>]+src="([^"]+)"/g)].map((m) => m[1]),
+    ];
+
+    for (const target of targets) {
+      if (/^(https?:|mailto:|data:)/i.test(target)) continue;
+
+      const [filePart, anchor] = target.split('#');
+      if (!filePart) {
+        // Same-document anchor.
+        if (anchor && !anchorsOf.get(file).has(anchor)) fail(`${rel}: no heading for anchor #${anchor}`);
+        continue;
+      }
+
+      const resolved = path.resolve(path.dirname(file), filePart);
+      if (!existsSync(resolved)) {
+        fail(`${rel}: link target not found -> ${target}`);
+        continue;
+      }
+      if (anchor && resolved.endsWith('.md')) {
+        const known = anchorsOf.get(resolved);
+        if (known && !known.has(anchor)) fail(`${rel}: no heading for ${filePart}#${anchor}`);
+      }
+    }
+  }
+}
+
 async function main() {
   const files = await walk(EXT);
 
@@ -84,6 +147,9 @@ async function main() {
   for (const ref of refs) {
     if (!existsSync(path.join(EXT, ref))) fail(`manifest references missing file: ${ref}`);
   }
+
+  console.log('checking documentation links');
+  await checkMarkdownLinks();
 
   console.log('checking vendored OCR assets');
   const vendor = [

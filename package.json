@@ -8,6 +8,7 @@
   "scripts": {
     "vendor": "node scripts/fetch-vendor.mjs",
     "icons": "python3 scripts/make-icons.py",
+    "screenshots": "node scripts/screenshots.mjs",
     "check": "node --experimental-vm-modules scripts/check.mjs",
     "test": "node scripts/test.mjs",
     "test:browser": "node scripts/test.mjs --browser",
