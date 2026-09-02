@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'make-shortcut.mjs');
@@ -38,6 +38,43 @@ const lin = run(['--platform', 'linux']);
 check('linux shortcut is a .desktop entry', lin.includes('.desktop') && lin.includes('[Desktop Entry]'));
 check('linux entry opens a terminal', lin.includes('Terminal=true'));
 check('linux entry carries an icon', lin.includes('Icon='));
+
+// --- the PowerShell that authors the .lnk ------------------------------------
+// Windows PowerShell 5.1 decodes a .ps1 with the system ANSI code page unless
+// the file has a BOM, so any Chinese in the script body arrives as mojibake on
+// a zh-CN machine and breaks the parse. Keep the script pure ASCII and pass the
+// Unicode through the environment, which Windows stores as UTF-16.
+{
+  const { windowsPowerShell } = await import('./make-shortcut.mjs');
+  const { script, env } = windowsPowerShell({
+    target: 'C:\\Users\\Administrator\\Desktop\\自动验证码 · 短信桥接.lnk',
+    launcher: 'D:\\proj\\start-bridge.cmd',
+    icon: 'D:\\proj\\icon.ico',
+    root: 'D:\\proj',
+  });
+
+  const nonAscii = [...script].filter((c) => c.charCodeAt(0) > 127);
+  check('the PowerShell body is pure ASCII', nonAscii.length === 0, JSON.stringify(nonAscii.join('')));
+  check('every string comes from the environment', !/CreateShortcut\("/.test(script), script);
+  check('it still sets target, icon and description',
+    ['TargetPath', 'IconLocation', 'Description', 'WorkingDirectory', 'Save()'].every((k) => script.includes(k)));
+  check('the environment carries the unicode path', env.AVC_LNK.includes('自动验证码'));
+  check('the environment carries the description', /[^\x00-\x7F]/.test(env.AVC_DESC));
+}
+
+// Importing the module must not run the CLI: the tests above depend on that,
+// and so would anything else that reuses windowsPowerShell().
+{
+  const home = mkdtempSync(path.join(os.tmpdir(), 'avc-home-'));
+  mkdirSync(path.join(home, 'Desktop'), { recursive: true });
+  execFileSync(
+    process.execPath,
+    ['--input-type=module', '-e', `await import(${JSON.stringify(pathToFileURL(SCRIPT).href)});`],
+    { env: { ...process.env, HOME: home, USERPROFILE: home }, stdio: 'pipe' },
+  );
+  check('importing the module creates nothing', readdirSync(path.join(home, 'Desktop')).length === 0);
+  rmSync(home, { recursive: true, force: true });
+}
 
 // --- the icon the Windows shortcut needs -------------------------------------
 {

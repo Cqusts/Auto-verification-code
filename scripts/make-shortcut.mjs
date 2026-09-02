@@ -93,81 +93,120 @@ function plan() {
   };
 }
 
-/** WScript.Shell is the only supported way to author a .lnk. */
-function createWindowsShortcut({ target, launcher, icon }) {
+const SHORTCUT_DESCRIPTION = '启动 Auto Verification Code 的短信桥接服务';
+
+/**
+ * Builds the PowerShell that authors the .lnk (WScript.Shell is the only
+ * supported way to do it) plus the environment it reads.
+ *
+ * The script body is deliberately pure ASCII. Windows PowerShell 5.1 decodes a
+ * .ps1 using the system ANSI code page unless the file carries a BOM, so on a
+ * zh-CN machine any Chinese written into the script comes back as mojibake —
+ * and the mangled bytes swallow the closing quote, failing with "The string is
+ * missing the terminator". Passing every non-ASCII value through the
+ * environment block sidesteps the file's encoding entirely: Windows stores it
+ * as UTF-16 and hands it to the child process unchanged.
+ *
+ * @returns {{script:string, env:Record<string,string>}}
+ */
+export function windowsPowerShell({ target, launcher, icon, root = ROOT }) {
   const script = [
     '$ErrorActionPreference = "Stop"',
     '$shell = New-Object -ComObject WScript.Shell',
-    `$sc = $shell.CreateShortcut(${JSON.stringify(target)})`,
-    `$sc.TargetPath = ${JSON.stringify(launcher)}`,
-    `$sc.WorkingDirectory = ${JSON.stringify(ROOT)}`,
-    `$sc.IconLocation = ${JSON.stringify(icon)}`,
-    '$sc.Description = "启动 Auto Verification Code 的短信桥接服务"',
+    '$sc = $shell.CreateShortcut($env:AVC_LNK)',
+    '$sc.TargetPath = $env:AVC_TARGET',
+    '$sc.WorkingDirectory = $env:AVC_CWD',
+    '$sc.IconLocation = $env:AVC_ICON',
+    '$sc.Description = $env:AVC_DESC',
     '$sc.Save()',
-  ].join('\n');
+    '',
+  ].join('\r\n');
 
+  return {
+    script,
+    env: {
+      AVC_LNK: target,
+      AVC_TARGET: launcher,
+      AVC_CWD: root,
+      AVC_ICON: icon,
+      AVC_DESC: SHORTCUT_DESCRIPTION,
+    },
+  };
+}
+
+function createWindowsShortcut(p) {
+  const { script, env } = windowsPowerShell(p);
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'avc-shortcut-'));
   const file = path.join(tmp, 'shortcut.ps1');
-  writeFileSync(file, script, 'utf8');
+  writeFileSync(file, script, 'ascii');
   try {
     execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', file], {
       stdio: 'pipe',
+      env: { ...process.env, ...env },
     });
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
 }
 
-const p = plan();
+function main() {
+    const p = plan();
 
-if (dryRun) {
-  console.log(`${remove ? '删除' : '创建'} ${p.kind}  [预览，不会写入]`);
-  console.log(`  位置      ${p.target}`);
-  console.log(`  指向      ${p.launcher}`);
-  if (p.icon) console.log(`  图标      ${p.icon}`);
-  if (p.content) {
-    console.log('  内容');
-    console.log(p.content.split('\n').map((l) => `    | ${l}`).join('\n'));
+  if (dryRun) {
+    console.log(`${remove ? '删除' : '创建'} ${p.kind}  [预览，不会写入]`);
+    console.log(`  位置      ${p.target}`);
+    console.log(`  指向      ${p.launcher}`);
+    if (p.icon) console.log(`  图标      ${p.icon}`);
+    if (p.content) {
+      console.log('  内容');
+      console.log(p.content.split('\n').map((l) => `    | ${l}`).join('\n'));
+    }
+    process.exit(0);
   }
-  process.exit(0);
-}
 
-if (remove) {
-  if (existsSync(p.target)) {
-    rmSync(p.target, { force: true });
-    console.log(`已删除 ${p.target}`);
-  } else {
-    console.log(`没有找到 ${p.target}，无需删除。`);
+  if (remove) {
+    if (existsSync(p.target)) {
+      rmSync(p.target, { force: true });
+      console.log(`已删除 ${p.target}`);
+    } else {
+      console.log(`没有找到 ${p.target}，无需删除。`);
+    }
+    process.exit(0);
   }
-  process.exit(0);
-}
 
-if (!existsSync(p.launcher)) {
-  console.error(`找不到启动脚本 ${p.launcher}`);
-  console.error('请在项目根目录下运行本命令。');
-  process.exit(1);
-}
-
-try {
-  mkdirSync(path.dirname(p.target), { recursive: true });
-  if (platform === 'win32') {
-    createWindowsShortcut(p);
-  } else {
-    writeFileSync(p.target, p.content, 'utf8');
-    chmodSync(p.target, p.mode);
+  if (!existsSync(p.launcher)) {
+    console.error(`找不到启动脚本 ${p.launcher}`);
+    console.error('请在项目根目录下运行本命令。');
+    process.exit(1);
   }
-} catch (err) {
-  console.error(`创建失败：${err.message}`);
-  process.exit(1);
+
+  try {
+    mkdirSync(path.dirname(p.target), { recursive: true });
+    if (platform === 'win32') {
+      createWindowsShortcut(p);
+    } else {
+      writeFileSync(p.target, p.content, 'utf8');
+      chmodSync(p.target, p.mode);
+    }
+  } catch (err) {
+    console.error(`创建失败：${err.message}`);
+    process.exit(1);
+  }
+
+  console.log(`已在桌面创建「${NAME}」`);
+  console.log(`  ${p.target}`);
+  console.log('');
+  console.log('  以后直接双击桌面这个图标就能启动，不用再进项目目录。');
+  if (platform === 'linux') {
+    console.log('  GNOME 首次可能需要右键 → “允许启动 / Allow Launching”。');
+  }
+  console.log('');
+  console.log('  项目文件夹如果换了位置，重新运行一次本命令即可。');
+  console.log('  想移除：npm run shortcut:remove');
 }
 
-console.log(`已在桌面创建「${NAME}」`);
-console.log(`  ${p.target}`);
-console.log('');
-console.log('  以后直接双击桌面这个图标就能启动，不用再进项目目录。');
-if (platform === 'linux') {
-  console.log('  GNOME 首次可能需要右键 → “允许启动 / Allow Launching”。');
-}
-console.log('');
-console.log('  项目文件夹如果换了位置，重新运行一次本命令即可。');
-console.log('  想移除：npm run shortcut:remove');
+// Importing this module (the tests do) must not create anything: only run the
+// CLI when the file is executed directly.
+const invokedDirectly =
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+if (invokedDirectly) main();
