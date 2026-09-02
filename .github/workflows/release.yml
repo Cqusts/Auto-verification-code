@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Resolve version
+        id: version
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${TAG#v}"
+          MANIFEST=$(node -p "require('./extension/manifest.json').version")
+          if [ "$VERSION" != "$MANIFEST" ]; then
+            echo "::error::tag $TAG does not match manifest version $MANIFEST"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Never publish a build that does not pass its own checks.
+      - name: Static checks
+        run: npm run check
+
+      - name: Tests
+        run: npm test
+
+      - name: Package the extension
+        run: npm run build
+
+      - name: Extract release notes
+        run: node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" > release-notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --notes-file release-notes.md \
+            "dist/auto-verification-code-${{ steps.version.outputs.version }}.zip"

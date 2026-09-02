@@ -148,6 +148,19 @@ async function main() {
     if (!existsSync(path.join(EXT, ref))) fail(`manifest references missing file: ${ref}`);
   }
 
+  console.log('checking version consistency');
+  const pkg = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
+  const manifestVersion = JSON.parse(await readFile(path.join(EXT, 'manifest.json'), 'utf8')).version;
+  // The release workflow packages extension/ and names the artifact after this
+  // version, so a drift between the two would ship a mislabelled build.
+  if (pkg.version !== manifestVersion) {
+    fail(`package.json version ${pkg.version} != manifest.json version ${manifestVersion}`);
+  }
+  const changelog = await readFile(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
+  if (!new RegExp(`^##\\s*\\[?${manifestVersion.replace(/\./g, '\\.')}\\]?`, 'm').test(changelog)) {
+    fail(`CHANGELOG.md has no section for ${manifestVersion}`);
+  }
+
   console.log('checking documentation links');
   await checkMarkdownLinks();
 

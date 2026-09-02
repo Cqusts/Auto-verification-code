@@ -41,21 +41,31 @@
 
 ## 安装
 
-尚未上架扩展商店，目前以开发者模式加载：
+尚未上架扩展商店，以开发者模式加载。两种拿到文件的方式：
+
+**方式一：下载发布包**（只想用扩展）
+
+到 [Releases](https://github.com/Cqusts/Auto-verification-code/releases) 下载最新的 `auto-verification-code-*.zip` 并解压。
+
+**方式二：克隆仓库**（还想用短信功能，桥接服务在仓库里）
 
 ```bash
 git clone https://github.com/Cqusts/Auto-verification-code.git
 cd Auto-verification-code
 ```
 
+然后无论哪种方式：
+
 1. 打开 Edge，地址栏输入 `edge://extensions/`
 2. 打开左下角 **开发人员模式**
-3. 点击 **加载解压缩的扩展**，选择仓库中的 `extension/` 目录
+3. 点击 **加载解压缩的扩展**，选择 `extension/` 目录（发布包解压后就是这个目录）
 
-装好即可用，**不需要 `npm install`** —— 项目零运行时依赖，离线 OCR 资源已随仓库提供。安装后已经打开的标签页会被自动注入，不必逐个刷新。
+装好即可用，**不需要 `npm install`** —— 项目零运行时依赖，离线 OCR 资源已随包提供。安装后已经打开的标签页会被自动注入，不必逐个刷新。
 
+> 加载后**不要移动或删除这个目录** —— 开发者模式记的是绝对路径，移动后浏览器下次启动就找不到它了。
+>
 > Chrome / Chromium 同样适用：`chrome://extensions/` → 开发者模式 → 加载已解压的扩展程序。
-> 打包成 zip 分发：`npm run build`，产物在 `dist/`。
+> 自己打包：`npm run build`，产物在 `dist/`。
 
 ## 快速开始
 
@@ -122,6 +132,7 @@ npm run autostart:uninstall   # 关闭自启
 | [OCR.md](docs/OCR.md) | 识别率调优对照表，接入自建 ddddocr / PaddleOCR |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 代码结构、数据流与关键设计取舍 |
 | [bridge/README.md](bridge/README.md) | 桥接服务的接口说明 |
+| [CHANGELOG.md](CHANGELOG.md) | 版本更新日志 |
 
 ## 隐私与安全
 
@@ -184,6 +195,8 @@ docs/                 文档
 ## 贡献
 
 欢迎 Issue 和 PR。提 PR 前请确保 `npm test` 通过；改动扩展本体时也请跑一遍 `npm run test:browser`。
+
+发布新版本：更新 `package.json` 与 `extension/manifest.json` 的版本号、在 `CHANGELOG.md` 加一节（`npm run check` 会校验三者一致），然后推一个 `v*` 标签，GitHub Actions 会自动跑测试、打包并发布 Release。
 
 新增站点适配尤其欢迎 —— 如果某个网站的验证码没被正确识别，请在 Issue 里附上该字段的 `name` / `id` / `placeholder` 和验证码图片的样子。
 
