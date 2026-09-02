@@ -14,8 +14,8 @@ const APP = 'auto-verification-code';
 
 /**
  * Per-platform config/log locations, following each OS's convention.
- * `platform` is overridable so `autostart --platform win32` can preview the real
- * Windows paths from any machine.
+ * `platform` is overridable so the paths can be resolved for a different OS
+ * than the one currently running.
  */
 export function paths(platform = process.platform) {
   const home = os.homedir();

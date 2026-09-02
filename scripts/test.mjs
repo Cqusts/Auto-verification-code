@@ -13,7 +13,6 @@ const suites = [
   ['bridge payloads', ['scripts/test-bridge-parse.mjs']],
   ['injection predicates', ['scripts/test-inject.mjs']],
   ['bridge server', ['scripts/test-bridge.mjs']],
-  ['autostart installer', ['scripts/test-autostart.mjs']],
   ...(withBrowser ? [['browser end-to-end', ['scripts/test-browser.mjs']]] : []),
 ];
 

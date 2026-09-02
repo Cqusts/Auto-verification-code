@@ -13,10 +13,7 @@
     "test": "node scripts/test.mjs",
     "test:browser": "node scripts/test.mjs --browser",
     "build": "node scripts/build-zip.mjs",
-    "bridge": "node bridge/server.mjs",
-    "autostart": "node bridge/autostart.mjs status",
-    "autostart:install": "node bridge/autostart.mjs install",
-    "autostart:uninstall": "node bridge/autostart.mjs uninstall"
+    "bridge": "node bridge/server.mjs"
   },
   "engines": {
     "node": ">=18"

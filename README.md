@@ -109,15 +109,16 @@ curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
 
 然后让手机把验证码短信转发过来 —— Android 用「短信转发器」类 App，iOS 用系统自带的「快捷指令」自动化，两者的完整步骤见 [docs/SMS-SETUP.md](docs/SMS-SETUP.md)。
 
-不想每次开机手动启动，装成自启即可 —— 在你自己的电脑上跑一次，之后开机自动运行：
+日常使用不必记命令 —— 直接双击项目根目录下的启动脚本即可：
 
-```bash
-npm run autostart:install     # 安装（不需要管理员权限）
-npm run autostart             # 查看状态和令牌
-npm run autostart:uninstall   # 关闭自启
-```
+| 系统 | 双击这个 |
+| --- | --- |
+| Windows | `start-bridge.cmd` |
+| macOS / Linux | `start-bridge.sh` |
 
-扩展本体和图片验证码识别本来就随浏览器启动，不需要这一步；自启只影响短信通路。注意安装时会记录绝对路径，之后**别移动仓库目录**，详见 [docs/AUTOSTART.md](docs/AUTOSTART.md)。
+脚本会自己定位项目路径（按脚本自身位置，不是当前工作目录），所以整个仓库换个地方放也不用改任何配置。窗口开着就是服务在跑，关掉窗口即停止；出错时窗口会停住，不会一闪而过。
+
+> 令牌只在第一次运行时生成并持久化保存，之后每次启动都是同一个，扩展里填一次就够了。
 
 <p align="center">
   <img src="docs/images/popup.png" alt="扩展弹窗" width="320">
@@ -128,7 +129,6 @@ npm run autostart:uninstall   # 关闭自启
 | 文档 | 内容 |
 | --- | --- |
 | [SMS-SETUP.md](docs/SMS-SETUP.md) | 把短信送进浏览器的四种方式（Android / iOS / 剪贴板 / 自建接口） |
-| [AUTOSTART.md](docs/AUTOSTART.md) | 桥接服务开机自启的安装与关闭，三个平台 |
 | [OCR.md](docs/OCR.md) | 识别率调优对照表，接入自建 ddddocr / PaddleOCR |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 代码结构、数据流与关键设计取舍 |
 | [bridge/README.md](bridge/README.md) | 桥接服务的接口说明 |
@@ -154,6 +154,8 @@ npm run autostart:uninstall   # 关闭自启
 
 **「填写失败：Could not establish connection. Receiving end does not exist.」**
 浏览器在说「这个标签页里没有内容脚本」。扩展在安装、更新和启动时会自动注入所有已打开的标签页，弹窗按钮失败时也会自动补注入，正常情况下不该看到它。若仍出现：该页面多半是浏览器内置页（`edge://`、扩展商店、PDF 阅读器），扩展无法在这类页面运行。刷新一次页面也一定能恢复。
+
+**启动时报 `EADDRINUSE`。** 端口 8787 已被占用，多半是之前启动的那个窗口还开着 —— 直接用它就行。找不到窗口了就在任务管理器里结束 `node.exe`，或换个端口：`start-bridge.cmd --port 8788`（记得同步改扩展设置里的 WebSocket 地址）。
 
 **短信来了但没填。** 按顺序查：桥接终端有没有打印那条短信 → 打印里的 `N client(s)` 是不是 0（0 表示扩展没连上，去设置点「测试连接」）→ 弹窗「最近验证码」有没有出现（有则说明解析成功，是页面上没找到输入框）→ 设置里开启「输出调试日志」后在「高级 → 运行日志」看具体原因。
 

@@ -6,17 +6,19 @@
 node bridge/server.mjs [--port 8787] [--host 0.0.0.0] [--token secret] [--history 50] [--quiet]
 ```
 
-令牌只在第一次运行时生成，之后持久化保存，重启和重开机都不会变（路径见 [docs/AUTOSTART.md](../docs/AUTOSTART.md#令牌)）。也可用 `--token` 或环境变量 `AVC_TOKEN` 覆盖；`AVC_PORT` / `AVC_HOST` 同理。
+令牌只在第一次运行时生成，之后持久化保存，重启和重开机都不会变，所以扩展里填一次就够了。存放位置：
 
-`--quiet` 会同时抑制收到的短信内容和令牌，只留启动横幅与错误 —— 自启服务用的就是这个模式，避免验证码明文落进日志文件。
+| 系统 | 路径 |
+| --- | --- |
+| Windows | `%APPDATA%\auto-verification-code\token` |
+| macOS | `~/Library/Application Support/auto-verification-code/token` |
+| Linux | `~/.config/auto-verification-code/token` |
 
-开机自启：
+（POSIX 系统上权限是 `600`，只有你本人可读。）想换一个：删掉这个文件重启服务即可。也可用 `--token` 或环境变量 `AVC_TOKEN` 覆盖；`AVC_PORT` / `AVC_HOST` 同理。
 
-```bash
-npm run autostart:install     # 安装
-npm run autostart             # 状态
-npm run autostart:uninstall   # 关闭
-```
+`--quiet` 会同时抑制收到的短信内容和令牌，只留启动横幅与错误，适合输出被重定向到日志文件的场景。
+
+日常启动推荐直接双击项目根目录下的 **`start-bridge.cmd`**（Windows）或 **`start-bridge.sh`**（macOS / Linux）—— 脚本会自己定位项目路径，仓库移动位置也不用改。
 
 ## 接口
 

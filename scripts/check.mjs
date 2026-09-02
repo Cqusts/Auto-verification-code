@@ -164,6 +164,22 @@ async function main() {
   console.log('checking documentation links');
   await checkMarkdownLinks();
 
+  console.log('checking launcher scripts');
+  for (const [name, mustContain] of [
+    ['start-bridge.cmd', ['cd /d "%~dp0"', 'bridge\\server.mjs', 'pause']],
+    ['start-bridge.sh', ['BASH_SOURCE', 'bridge/server.mjs']],
+  ]) {
+    const full = path.join(ROOT, name);
+    if (!existsSync(full)) {
+      fail(`missing launcher ${name}`);
+      continue;
+    }
+    const src = await readFile(full, 'utf8');
+    for (const needle of mustContain) {
+      if (!src.includes(needle)) fail(`${name}: expected to contain ${JSON.stringify(needle)}`);
+    }
+  }
+
   console.log('checking vendored OCR assets');
   const vendor = [
     'vendor/tesseract/tesseract.min.js',

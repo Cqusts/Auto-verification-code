@@ -225,12 +225,51 @@ function localAddresses() {
   return out;
 }
 
+/**
+ * A bare `listen` failure surfaces as an unhandled 'error' event and a stack
+ * trace, which tells the user nothing. The common case by far is a second copy
+ * of this same server, so check for that and say so.
+ */
+server.on('error', async (err) => {
+  if (err.code !== 'EADDRINUSE') {
+    console.error(`\n无法在 ${HOST}:${PORT} 启动：${err.message}`);
+    if (err.code === 'EACCES') console.error('  低于 1024 的端口需要管理员权限，换一个更大的端口试试。');
+    process.exit(1);
+  }
+
+  let ours = false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${PORT}/status`, { signal: AbortSignal.timeout(1500) });
+    const body = await res.json();
+    ours = String(body?.service || '').includes('auto-verification-code');
+  } catch {
+    // Something else holds the port, or it does not speak HTTP.
+  }
+
+  if (ours) {
+    console.error(`\n端口 ${PORT} 上已经有一个 Auto Verification Code 桥接服务在运行。`);
+    console.error('');
+    console.error('  多半是之前启动的那个窗口还开着 —— 直接用它就行，不用再起一个。');
+    console.error(`  真要再起一个，换端口：node bridge/server.mjs --port ${PORT + 1}`);
+    console.error(`  找不到那个窗口了：Windows 用任务管理器结束 node.exe，`);
+    console.error(`                    macOS/Linux 用 lsof -i :${PORT} 找到后 kill。`);
+  } else {
+    console.error(`\n端口 ${PORT} 被其它程序占用了。`);
+    console.error('');
+    console.error(`  换个端口         node bridge/server.mjs --port ${PORT + 1}`);
+    console.error('                   （记得同步改扩展设置里的 WebSocket 地址）');
+    console.error(`  查谁占用了       Windows: netstat -ano | findstr :${PORT}`);
+    console.error(`                   macOS/Linux: lsof -i :${PORT}`);
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
   const lan = localAddresses()[0] || '127.0.0.1';
   console.log('Auto Verification Code — SMS bridge');
   console.log(`  listening        http://${HOST}:${PORT}`);
-  // --quiet is what the autostart services use: their stdout lands in a log
-  // file, and neither the codes nor the token belong on disk in cleartext.
+  // With --quiet the output is usually being redirected to a file, and neither
+  // the codes nor the token belong on disk in cleartext.
   if (QUIET) {
     console.log(`  token            (see ${TOKEN_FILE})`);
   } else {

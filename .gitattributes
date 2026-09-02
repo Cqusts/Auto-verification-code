@@ -1,0 +1,13 @@
+* text=auto
+
+# Batch files must keep CRLF: cmd.exe mis-parses LF-only scripts.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts must keep LF, even when checked out on Windows.
+*.sh text eol=lf
+
+# Never let line-ending normalisation touch binaries or the OCR model.
+*.png binary
+*.gz binary
+*.wasm binary

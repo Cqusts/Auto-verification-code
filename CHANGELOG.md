@@ -11,7 +11,8 @@
 - 打分式短信解析：按关键词距离、长度、上下文给每个候选打分，能排除手机号、订单号、`5分钟`、`300元` 这类干扰数字
 - 四种来源：WebSocket 推送、HTTP 轮询、剪贴板、手动粘贴
 - 零依赖本地桥接服务（`bridge/server.mjs`，含手写 WebSocket 实现），令牌鉴权，接受 JSON / 表单 / 纯文本三种 webhook 格式
-- 开机自启安装器，支持 Windows 启动文件夹、macOS LaunchAgent、Linux systemd user service，均无需管理员权限
+- 双击即用的启动脚本（`start-bridge.cmd` / `start-bridge.sh`），自动定位项目路径
+- 令牌持久化保存，每次启动不变，扩展里只需填写一次
 
 ### 图片验证码
 

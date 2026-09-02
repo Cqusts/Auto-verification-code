@@ -133,6 +133,21 @@ async function main() {
     check('wrong token rejected', badToken.status === 401, `got ${badToken.status}`);
 
     ws.socket.destroy();
+
+    // A second instance on the same port must explain itself, not throw a stack trace.
+    const clash = await new Promise((resolve) => {
+      const child = spawn('node', [path.join(ROOT, 'bridge', 'server.mjs'), '--port', String(PORT)], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let out = '';
+      child.stdout.on('data', (d) => (out += d));
+      child.stderr.on('data', (d) => (out += d));
+      child.on('exit', (code) => resolve({ code, out }));
+    });
+    check('port clash exits cleanly', clash.code === 1, `exit=${clash.code}`);
+    check('port clash prints no stack trace', !/at Server\.|node:net:/.test(clash.out), clash.out.slice(0, 120));
+    check('port clash recognises our own bridge', clash.out.includes('已经有一个'), clash.out.slice(0, 160));
+    check('port clash suggests another port', clash.out.includes('--port'), clash.out.slice(0, 160));
   } finally {
     server.kill('SIGTERM');
     await sleep(200);
