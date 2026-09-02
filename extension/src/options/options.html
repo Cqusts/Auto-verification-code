@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>自动验证码 · 设置</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <img src="../../assets/icons/icon-48.png" alt="" width="28" height="28" />
+      <h1>自动验证码 · 设置</h1>
+      <span class="saved" id="saved" hidden>已保存</span>
+    </header>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab tab--active" data-tab="general" type="button">常规</button>
+      <button class="tab" data-tab="sms" type="button">短信来源</button>
+      <button class="tab" data-tab="captcha" type="button">图片验证码</button>
+      <button class="tab" data-tab="sites" type="button">站点规则</button>
+      <button class="tab" data-tab="advanced" type="button">高级</button>
+    </nav>
+
+    <main>
+      <!-- ============================= GENERAL ============================= -->
+      <section class="panel panel--active" data-panel="general">
+        <div class="card">
+          <h2>总开关</h2>
+          <label class="check"><input type="checkbox" data-path="enabled" /><span>启用扩展</span></label>
+          <p class="hint">关闭后所有页面上的自动填写与识别都会停止。</p>
+        </div>
+
+        <div class="card">
+          <h2>短信验证码填写</h2>
+          <label class="check"><input type="checkbox" data-path="otp.enabled" /><span>启用短信验证码自动填写</span></label>
+          <label class="check"><input type="checkbox" data-path="otp.autoFill" /><span>收到验证码后立即填写</span></label>
+          <label class="check"><input type="checkbox" data-path="otp.skipNonEmpty" /><span>输入框已有内容时不覆盖</span></label>
+          <label class="check"><input type="checkbox" data-path="otp.highlight" /><span>填写后高亮输入框</span></label>
+          <label class="check check--warn">
+            <input type="checkbox" data-path="otp.autoSubmit" /><span>填写后自动提交表单</span>
+          </label>
+          <p class="hint">自动提交是不可撤销的操作，默认关闭；建议确认识别稳定后再开启。</p>
+
+          <div class="grid">
+            <label class="field"><span>最短长度</span><input type="number" min="3" max="12" data-path="otp.minLength" /></label>
+            <label class="field"><span>最长长度</span><input type="number" min="3" max="12" data-path="otp.maxLength" /></label>
+            <label class="field"><span>字符集</span>
+              <select data-path="otp.charset">
+                <option value="digits">纯数字</option>
+                <option value="alnum">数字 + 字母</option>
+              </select>
+            </label>
+            <label class="field"><span>有效期（秒）</span><input type="number" min="30" max="1800" data-path="otp.ttlSeconds" /></label>
+          </div>
+
+          <label class="field field--wide">
+            <span>识别关键词（每行一个，用于从短信中定位验证码）</span>
+            <textarea rows="4" data-path="otp.keywords" data-type="lines"></textarea>
+          </label>
+        </div>
+
+        <div class="card">
+          <h2>界面提示</h2>
+          <label class="check"><input type="checkbox" data-path="ui.showBadge" /><span>在输入框旁显示状态标签</span></label>
+          <label class="check"><input type="checkbox" data-path="ui.notifyOnCode" /><span>收到验证码时发送系统通知</span></label>
+          <button class="btn" id="btn-perm-notify" type="button">授予通知权限</button>
+        </div>
+      </section>
+
+      <!-- ============================== SMS =============================== -->
+      <section class="panel" data-panel="sms">
+        <div class="card">
+          <h2>工作原理</h2>
+          <p class="hint">
+            浏览器无法直接读取手机短信。本扩展从一个<strong>由你自己运行的本地桥接服务</strong>获取短信：
+            手机上的短信转发 App 把验证码短信 POST 给电脑上的桥接服务，扩展再从桥接服务读取。
+            仓库里的 <code>bridge/server.mjs</code> 就是一个可直接运行的参考实现，
+            详细步骤见 <code>docs/SMS-SETUP.md</code>。
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>WebSocket 推送（推荐，延迟最低）</h2>
+          <label class="check"><input type="checkbox" data-path="sources.ws.enabled" /><span>启用</span></label>
+          <div class="grid">
+            <label class="field field--wide"><span>地址</span><input type="text" data-path="sources.ws.url" placeholder="ws://127.0.0.1:8787/ws" /></label>
+            <label class="field"><span>令牌（可选）</span><input type="text" data-path="sources.ws.token" placeholder="与桥接服务一致" /></label>
+            <label class="field"><span>重连间隔（秒）</span><input type="number" min="2" max="60" data-path="sources.ws.reconnectSeconds" /></label>
+          </div>
+          <div class="actions">
+            <button class="btn" id="btn-test-ws" type="button">测试连接</button>
+            <span class="test-result" id="result-ws"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>HTTP 轮询（兼容任何返回 JSON 的接口）</h2>
+          <label class="check"><input type="checkbox" data-path="sources.http.enabled" /><span>启用</span></label>
+          <div class="grid">
+            <label class="field field--wide"><span>地址</span><input type="text" data-path="sources.http.url" placeholder="http://127.0.0.1:8787/latest" /></label>
+            <label class="field"><span>轮询间隔（秒）</span><input type="number" min="2" max="600" data-path="sources.http.intervalSeconds" /></label>
+            <label class="field"><span>JSON 路径（可选）</span><input type="text" data-path="sources.http.responsePath" placeholder="例如 data.messages" /></label>
+            <label class="field"><span>请求头名</span><input type="text" data-path="sources.http.headerName" placeholder="Authorization" /></label>
+            <label class="field"><span>请求头值</span><input type="text" data-path="sources.http.headerValue" placeholder="Bearer …" /></label>
+          </div>
+          <div class="actions">
+            <button class="btn" id="btn-test-http" type="button">测试接口</button>
+            <span class="test-result" id="result-http"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>剪贴板</h2>
+          <label class="check"><input type="checkbox" data-path="sources.clipboard.enabled" /><span>监听剪贴板中的验证码</span></label>
+          <label class="check"><input type="checkbox" data-path="sources.clipboard.onlyWithOtpField" /><span>仅在页面存在验证码输入框时读取</span></label>
+          <label class="field"><span>检查间隔（秒）</span><input type="number" min="2" max="60" data-path="sources.clipboard.intervalSeconds" /></label>
+          <p class="hint">需要额外的剪贴板读取权限。适合手机与电脑之间已有剪贴板同步（如「手机连接」/ Phone Link）的场景。</p>
+          <button class="btn" id="btn-perm-clip" type="button">授予剪贴板权限</button>
+        </div>
+      </section>
+
+      <!-- ============================ CAPTCHA ============================= -->
+      <section class="panel" data-panel="captcha">
+        <div class="card">
+          <h2>图片验证码识别</h2>
+          <label class="check"><input type="checkbox" data-path="captcha.enabled" /><span>启用图片验证码识别</span></label>
+          <label class="check"><input type="checkbox" data-path="captcha.solveOnDetect" /><span>发现验证码图片时立即识别</span></label>
+          <label class="check"><input type="checkbox" data-path="captcha.solveOnImageChange" /><span>图片刷新后重新识别</span></label>
+          <label class="check check--warn"><input type="checkbox" data-path="captcha.autoSubmit" /><span>识别后自动提交表单</span></label>
+
+          <div class="grid">
+            <label class="field"><span>识别引擎</span>
+              <select data-path="captcha.provider">
+                <option value="local">本地离线（Tesseract）</option>
+                <option value="http">自建 HTTP 接口</option>
+                <option value="off">关闭</option>
+              </select>
+            </label>
+            <label class="field"><span>字符集</span>
+              <select data-path="captcha.charset">
+                <option value="digits">纯数字</option>
+                <option value="upperAlnum">数字 + 大写字母</option>
+                <option value="alnum">数字 + 大小写字母</option>
+                <option value="alpha">纯字母</option>
+                <option value="custom">自定义</option>
+              </select>
+            </label>
+            <label class="field"><span>自定义字符集</span><input type="text" data-path="captcha.customCharset" placeholder="例如 0123456789ABCDEF" /></label>
+            <label class="field"><span>期望长度（0 = 不限）</span><input type="number" min="0" max="10" data-path="captcha.expectedLength" /></label>
+            <label class="field"><span>最低置信度 %</span><input type="number" min="0" max="100" data-path="captcha.minConfidence" /></label>
+            <label class="field"><span>换图重试次数</span><input type="number" min="0" max="3" data-path="captcha.maxRetries" /></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>图像预处理</h2>
+          <p class="hint">干扰线多、字符粘连的验证码可调整这里；处理完全在本地完成。</p>
+          <label class="check"><input type="checkbox" data-path="captcha.preprocess.enabled" /><span>启用预处理</span></label>
+          <label class="check"><input type="checkbox" data-path="captcha.preprocess.binarize" /><span>二值化</span></label>
+          <label class="check"><input type="checkbox" data-path="captcha.preprocess.despeckle" /><span>去噪点</span></label>
+          <label class="check"><input type="checkbox" data-path="captcha.preprocess.autoInvert" /><span>自动反色（深底浅字）</span></label>
+          <div class="grid">
+            <label class="field"><span>放大倍数</span><input type="number" min="1" max="8" data-path="captcha.preprocess.scale" /></label>
+            <label class="field"><span>二值化阈值（0 = 自动）</span><input type="number" min="0" max="255" data-path="captcha.preprocess.threshold" /></label>
+            <label class="field"><span>裁边像素</span><input type="number" min="0" max="10" data-path="captcha.preprocess.trimBorder" /></label>
+            <label class="field"><span>版面模式 PSM</span>
+              <select data-path="captcha.local.psm">
+                <option value="7">7 · 单行文本</option>
+                <option value="8">8 · 单个词</option>
+                <option value="6">6 · 文本块</option>
+                <option value="13">13 · 原始单行</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>自建 HTTP 识别接口</h2>
+          <p class="hint">例如本机运行的 ddddocr / PaddleOCR 服务。仅在识别引擎选择「自建 HTTP 接口」时生效。</p>
+          <div class="grid">
+            <label class="field field--wide"><span>接口地址</span><input type="text" data-path="captcha.http.url" placeholder="http://127.0.0.1:9898/ocr" /></label>
+            <label class="field"><span>提交格式</span>
+              <select data-path="captcha.http.format">
+                <option value="json-base64">JSON + base64</option>
+                <option value="form-data">multipart/form-data</option>
+                <option value="raw-body">原始二进制</option>
+              </select>
+            </label>
+            <label class="field"><span>字段名</span><input type="text" data-path="captcha.http.fieldName" placeholder="image" /></label>
+            <label class="field"><span>结果 JSON 路径</span><input type="text" data-path="captcha.http.responsePath" placeholder="result" /></label>
+            <label class="field"><span>请求头名</span><input type="text" data-path="captcha.http.headerName" /></label>
+            <label class="field"><span>请求头值</span><input type="text" data-path="captcha.http.headerValue" /></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>识别测试</h2>
+          <p class="hint">选择、拖入或直接 Ctrl+V 粘贴一张验证码图片，查看预处理效果与识别结果。</p>
+          <div class="dropzone" id="dropzone" tabindex="0">
+            <input type="file" id="ocr-file" accept="image/*" hidden />
+            <span>点击选择图片 · 或拖入 · 或 Ctrl+V 粘贴</span>
+          </div>
+          <div class="test-out" id="ocr-out" hidden>
+            <div class="test-out__imgs">
+              <figure><img id="ocr-src" alt="原图" /><figcaption>原图</figcaption></figure>
+              <figure><img id="ocr-prep" alt="预处理结果" /><figcaption>预处理后</figcaption></figure>
+            </div>
+            <p class="test-out__text" id="ocr-text"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================= SITES ============================== -->
+      <section class="panel" data-panel="sites">
+        <div class="card">
+          <h2>生效范围</h2>
+          <label class="field"><span>模式</span>
+            <select data-path="sites.mode">
+              <option value="all">全部站点（黑名单除外）</option>
+              <option value="allowlist">仅白名单站点</option>
+            </select>
+          </label>
+          <label class="field field--wide">
+            <span>白名单（每行一个，支持 example.com、*.example.com、/正则/）</span>
+            <textarea rows="6" data-path="sites.allowlist" data-type="lines" placeholder="example.com"></textarea>
+          </label>
+          <label class="field field--wide">
+            <span>黑名单（优先级最高）</span>
+            <textarea rows="6" data-path="sites.blocklist" data-type="lines" placeholder="bank.example.com"></textarea>
+          </label>
+          <p class="hint">建议把网银、支付等敏感站点加入黑名单。</p>
+        </div>
+      </section>
+
+      <!-- ============================ ADVANCED ============================ -->
+      <section class="panel" data-panel="advanced">
+        <div class="card">
+          <h2>高级</h2>
+          <label class="check"><input type="checkbox" data-path="advanced.debug" /><span>输出调试日志到控制台</span></label>
+          <label class="check"><input type="checkbox" data-path="advanced.keepAlive" /><span>保持桥接连接常驻</span></label>
+          <label class="field"><span>验证码历史条数</span><input type="number" min="1" max="20" data-path="advanced.historySize" /></label>
+          <p class="hint">验证码只保存在内存中（storage.session），浏览器关闭即清除，不会写入磁盘。</p>
+        </div>
+
+        <div class="card">
+          <h2>配置备份</h2>
+          <div class="actions">
+            <button class="btn" id="btn-export" type="button">导出配置</button>
+            <button class="btn" id="btn-import" type="button">导入配置</button>
+            <button class="btn btn--danger" id="btn-reset" type="button">恢复默认</button>
+            <input type="file" id="import-file" accept="application/json" hidden />
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>运行日志</h2>
+          <div class="actions">
+            <button class="btn" id="btn-logs" type="button">刷新日志</button>
+            <button class="btn" id="btn-clear-logs" type="button">清空</button>
+          </div>
+          <pre class="logs" id="logs">（点击刷新查看）</pre>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,109 @@
+:root {
+  --bg: #ffffff;
+  --fg: #1a202c;
+  --muted: #718096;
+  --line: #e2e8f0;
+  --card: #f7fafc;
+  --accent: #2563eb;
+  --ok: #38a169;
+  --warn: #d69e2e;
+  --err: #e53e3e;
+}
+
+* { box-sizing: border-box; }
+
+/* Author `display` rules outrank the UA stylesheet, so restate this. */
+[hidden] { display: none !important; }
+
+body {
+  width: 320px;
+  margin: 0;
+  padding: 10px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Roboto, sans-serif;
+}
+
+.head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 10px; }
+.head__icon { border-radius: 5px; }
+.head__title { font-weight: 600; font-size: 14px; flex: 1; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 10px;
+  margin-bottom: 8px;
+}
+
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 22px; }
+.row + .row { margin-top: 2px; }
+.row__label { color: var(--muted); flex: none; }
+.row__value { font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot--ok { background: var(--ok); }
+.dot--warn { background: var(--warn); }
+.dot--err { background: var(--err); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+
+.btn {
+  flex: 1 1 auto;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--fg);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) { background: #edf2f7; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn--primary:hover:not(:disabled) { background: #1d4ed8; }
+.btn--ghost { background: transparent; color: var(--muted); }
+.btn--block { width: 100%; flex: none; margin-top: 8px; }
+
+.field { display: block; }
+.field__label { display: block; color: var(--muted); margin-bottom: 5px; font-size: 12px; }
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 7px;
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+  background: #fff;
+  color: var(--fg);
+}
+textarea:focus { outline: 2px solid rgba(37, 99, 235, 0.35); outline-offset: -1px; }
+
+.msg { margin: 0 0 8px; padding: 6px 9px; border-radius: 6px; background: #ebf8ff; color: #2c5282; font-size: 12px; }
+.msg--err { background: #fff5f5; color: #c53030; }
+.msg--ok { background: #f0fff4; color: #276749; }
+
+.foot { display: flex; justify-content: space-between; padding: 2px; }
+.link { border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; cursor: pointer; padding: 2px; }
+.link:hover { text-decoration: underline; }
+
+.switch { position: relative; display: inline-flex; flex: none; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch__track { width: 34px; height: 20px; border-radius: 10px; background: #cbd5e0; display: block; transition: background 0.15s; }
+.switch__knob { display: block; width: 16px; height: 16px; border-radius: 50%; background: #fff; margin: 2px; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.switch input:checked + .switch__track { background: var(--accent); }
+.switch input:checked + .switch__track .switch__knob { transform: translateX(14px); }
+.switch input:focus-visible + .switch__track { outline: 2px solid rgba(37, 99, 235, 0.5); outline-offset: 2px; }
+
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1a1f2b; --fg: #e2e8f0; --muted: #a0aec0; --line: #2d3340; --card: #222836; }
+  .btn { background: #2a3140; }
+  .btn:hover:not(:disabled) { background: #333b4c; }
+  textarea { background: #1a1f2b; }
+  .msg { background: #1e3a5f; color: #bee3f8; }
+  .msg--err { background: #4a1f1f; color: #feb2b2; }
+  .msg--ok { background: #1c3d2b; color: #9ae6b4; }
+}

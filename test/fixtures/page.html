@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><title>AVC test page</title>
+    <style>
+      body { font: 14px/1.6 sans-serif; padding: 24px; max-width: 640px; }
+      fieldset { margin-bottom: 26px; padding: 14px 16px; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+      input[type=text] { padding: 6px 8px; font-size: 14px; }
+      .boxes input { width: 30px; text-align: center; padding: 6px 0; }
+      #captcha-img { border: 1px solid #ccc; vertical-align: middle; }
+    </style>
+  </head>
+  <body>
+    <h1>Auto Verification Code — test page</h1>
+
+    <fieldset>
+      <legend>1. 短信验证码（单输入框）</legend>
+      <form id="form-sms" onsubmit="event.preventDefault(); document.getElementById('sms-submitted').textContent='submitted';">
+        <div class="row">
+          <label for="smsCode">短信验证码</label>
+          <input type="text" id="smsCode" name="smsCode" maxlength="6" autocomplete="one-time-code" />
+          <button type="button" id="send-code">获取验证码</button>
+        </div>
+        <button type="submit">登录</button>
+        <span id="sms-submitted"></span>
+      </form>
+    </fieldset>
+
+    <fieldset>
+      <legend>2. 图片验证码</legend>
+      <div class="row">
+        <label for="captcha">验证码</label>
+        <input type="text" id="captcha" name="captcha" maxlength="4" />
+        <img id="captcha-img" alt="captcha" width="90" height="34" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>3. 分格验证码</legend>
+      <div class="row boxes" id="boxes">
+        <input type="text" maxlength="1" name="otp1" inputmode="numeric" aria-label="短信验证码 1" />
+        <input type="text" maxlength="1" name="otp2" inputmode="numeric" aria-label="短信验证码 2" />
+        <input type="text" maxlength="1" name="otp3" inputmode="numeric" aria-label="短信验证码 3" />
+        <input type="text" maxlength="1" name="otp4" inputmode="numeric" aria-label="短信验证码 4" />
+        <input type="text" maxlength="1" name="otp5" inputmode="numeric" aria-label="短信验证码 5" />
+        <input type="text" maxlength="1" name="otp6" inputmode="numeric" aria-label="短信验证码 6" />
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>4. 密码（必须被忽略）</legend>
+      <div class="row"><label for="pwd">密码</label><input type="text" id="pwd" name="password" /></div>
+    </fieldset>
+
+    <script src="captcha.js"></script>
+  </body>
+</html>

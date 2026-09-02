@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auto Verification Code</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="head">
+      <img class="head__icon" src="../../assets/icons/icon-32.png" alt="" width="20" height="20" />
+      <div class="head__title">自动验证码</div>
+      <label class="switch" title="总开关">
+        <input type="checkbox" id="master" />
+        <span class="switch__track"><span class="switch__knob"></span></span>
+      </label>
+    </header>
+
+    <section class="card" id="site-card">
+      <div class="row">
+        <span class="row__label">当前站点</span>
+        <span class="row__value" id="site-host">—</span>
+      </div>
+      <div class="row">
+        <span class="row__label">页面状态</span>
+        <span class="row__value" id="page-state">检测中…</span>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btn-rescan" type="button">重新扫描</button>
+        <button class="btn" id="btn-solve" type="button">识别图片验证码</button>
+        <button class="btn" id="btn-clip" type="button">读取剪贴板</button>
+      </div>
+      <button class="btn btn--ghost btn--block" id="btn-site-toggle" type="button">在此站点停用</button>
+    </section>
+
+    <section class="card">
+      <div class="row">
+        <span class="row__label">短信桥接</span>
+        <span class="row__value"><span class="dot" id="dot-bridge"></span><span id="bridge-state">未启用</span></span>
+      </div>
+      <div class="row">
+        <span class="row__label">最近验证码</span>
+        <span class="row__value" id="last-code">—</span>
+      </div>
+      <div class="actions" id="last-actions" hidden>
+        <button class="btn btn--primary" id="btn-fill-last" type="button">填入当前页面</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <label class="field">
+        <span class="field__label">手动输入验证码或粘贴短信全文</span>
+        <textarea id="manual" rows="2" placeholder="例如：【某某】您的验证码是 123456"></textarea>
+      </label>
+      <button class="btn btn--primary btn--block" id="btn-manual" type="button">解析并填写</button>
+    </section>
+
+    <p class="msg" id="msg" hidden></p>
+
+    <footer class="foot">
+      <button class="link" id="btn-options" type="button">设置</button>
+      <button class="link" id="btn-clear" type="button">清空记录</button>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,245 @@
+import {
+  OTP_STRONG_RE,
+  CAPTCHA_STRONG_RE,
+  CODE_AMBIGUOUS_RE,
+  FIELD_BLOCK_RE,
+  SEND_CODE_BUTTON_RE,
+  CAPTCHA_IMG_RE,
+  CAPTCHA_IMG_SIZE,
+} from '../common/patterns.js';
+import {
+  deepQueryAll,
+  isVisible,
+  isFillableTextInput,
+  describeField,
+  containerOf,
+  textOf,
+} from './dom-utils.js';
+
+const OTP_THRESHOLD = 55;
+const CAPTCHA_THRESHOLD = 55;
+
+/** All plausibly-fillable text inputs on the page, shadow DOM included. */
+export function collectInputs() {
+  return deepQueryAll('input')
+    .filter(isFillableTextInput)
+    .filter(isVisible);
+}
+
+function rectDistance(a, b) {
+  const ax = a.left + a.width / 2;
+  const ay = a.top + a.height / 2;
+  const bx = b.left + b.width / 2;
+  const by = b.top + b.height / 2;
+  return Math.hypot(ax - bx, ay - by);
+}
+
+/**
+ * Does a "get SMS code" button sit near this input?
+ * Proximity matters as much as the label: on a single-form page the button can be
+ * hundreds of pixels away from an unrelated field.
+ */
+function hasSendCodeButton(input) {
+  const scope = containerOf(input, 4);
+  const inputRect = input.getBoundingClientRect();
+  const clickable = scope.querySelectorAll('button, a, span[role="button"], div[role="button"], input[type="button"]');
+  for (const el of clickable) {
+    const label = textOf(el) || el.getAttribute?.('value') || '';
+    if (!label || label.length > 24 || !SEND_CODE_BUTTON_RE.test(label)) continue;
+    if (rectDistance(inputRect, el.getBoundingClientRect()) <= 320) return true;
+  }
+  return false;
+}
+
+function backgroundImageUrl(el) {
+  const bg = getComputedStyle(el).backgroundImage;
+  const match = /url\(["']?([^"')]+)["']?\)/.exec(bg || '');
+  return match ? match[1] : null;
+}
+
+/**
+ * Finds the CAPTCHA picture belonging to an input.
+ * Scores every nearby image by name, size, aspect ratio and distance; anything
+ * that scores too low is treated as an unrelated logo/avatar.
+ */
+export function findCaptchaImage(input) {
+  const scope = containerOf(input, 5);
+  const inputRect = input.getBoundingClientRect();
+  const candidates = [];
+
+  // getBoundingClientRect is far cheaper than getComputedStyle, so filter on
+  // geometry first: on a page that wraps everything in one <form> this is the
+  // difference between a handful of style reads and a few thousand.
+  const nearby = (el) => {
+    const rect = el.getBoundingClientRect();
+    const { minWidth, maxWidth, minHeight, maxHeight } = CAPTCHA_IMG_SIZE;
+    if (rect.width < minWidth || rect.width > maxWidth) return null;
+    if (rect.height < minHeight || rect.height > maxHeight) return null;
+    const distance = rectDistance(inputRect, rect);
+    return distance > 520 ? null : { rect, distance };
+  };
+
+  const consider = (el, kind, geometry = null) => {
+    const geo = geometry || nearby(el);
+    if (!geo || !isVisible(el)) return;
+    const { rect, distance } = geo;
+    const { idealRatioMin, idealRatioMax } = CAPTCHA_IMG_SIZE;
+
+    let score = 40;
+    const hay = [
+      el.getAttribute?.('alt'),
+      el.getAttribute?.('title'),
+      el.id,
+      el.className,
+      el.getAttribute?.('src'),
+      el.parentElement?.className,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (CAPTCHA_IMG_RE.test(hay)) score += 55;
+
+    const ratio = rect.width / Math.max(1, rect.height);
+    if (ratio >= idealRatioMin && ratio <= idealRatioMax) score += 20;
+    // Same visual row as the input is the classic layout.
+    if (Math.abs(rect.top - inputRect.top) < Math.max(24, inputRect.height)) score += 20;
+    score -= Math.min(35, distance / 12);
+    if (kind === 'canvas') score += 10;
+
+    candidates.push({ el, kind, score, rect, distance });
+  };
+
+  scope.querySelectorAll('img').forEach((el) => consider(el, 'img'));
+  scope.querySelectorAll('canvas').forEach((el) => consider(el, 'canvas'));
+  // Some sites paint the CAPTCHA as a CSS background on a div/span/a.
+  let examined = 0;
+  for (const el of scope.querySelectorAll('div, span, a, i, button')) {
+    if (examined > 400) break;
+    if (el.childElementCount > 2) continue;
+    const geo = nearby(el);
+    if (!geo) continue;
+    examined += 1;
+    if (backgroundImageUrl(el)) consider(el, 'background', geo);
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  return best && best.score >= 60 ? best : null;
+}
+
+/**
+ * Classifies one input.
+ * @returns {{kind:'otp'|'captcha', score:number, image?:object}|null}
+ */
+export function classifyField(input) {
+  const hay = describeField(input);
+  if (!hay) return null;
+  if (FIELD_BLOCK_RE.test(hay)) return null;
+
+  const autocomplete = (input.getAttribute('autocomplete') || '').toLowerCase();
+  if (autocomplete.includes('one-time-code')) {
+    return { kind: 'otp', score: 150, reasons: ['autocomplete=one-time-code'] };
+  }
+
+  let otp = 0;
+  let captcha = 0;
+  const reasons = [];
+
+  if (OTP_STRONG_RE.test(hay)) {
+    otp += 80;
+    reasons.push('name:sms');
+  }
+  if (CAPTCHA_STRONG_RE.test(hay)) {
+    captcha += 80;
+    reasons.push('name:captcha');
+  }
+  const ambiguous = CODE_AMBIGUOUS_RE.test(hay);
+  if (ambiguous) {
+    otp += 30;
+    captcha += 30;
+    reasons.push('name:code');
+  }
+  if (!otp && !captcha) return null;
+
+  const image = findCaptchaImage(input);
+  if (image) {
+    captcha += 70;
+    reasons.push(`image:${image.kind}`);
+  }
+  if (hasSendCodeButton(input)) {
+    otp += 55;
+    reasons.push('send-code-button');
+  }
+
+  const maxLength = Number(input.getAttribute('maxlength')) || 0;
+  if (maxLength >= 4 && maxLength <= 8) {
+    otp += 8;
+    captcha += 8;
+    reasons.push(`maxlength=${maxLength}`);
+  }
+  if ((input.getAttribute('inputmode') || '') === 'numeric') otp += 5;
+
+  if (captcha >= otp && captcha >= CAPTCHA_THRESHOLD) {
+    // A CAPTCHA field without a picture is not something we can solve.
+    if (!image) return null;
+    return { kind: 'captcha', score: captcha, image, reasons };
+  }
+  if (otp >= OTP_THRESHOLD) return { kind: 'otp', score: otp, reasons };
+  return null;
+}
+
+/**
+ * Split one-time-code widgets: several single-character boxes in a row.
+ * Returns the ordered group that `input` belongs to, or null.
+ */
+export function findDigitGroup(input) {
+  if (Number(input.getAttribute('maxlength')) !== 1) return null;
+  const parent = input.parentElement?.parentElement || input.parentElement;
+  if (!parent) return null;
+  const siblings = [...parent.querySelectorAll('input')].filter(
+    (el) => isFillableTextInput(el) && Number(el.getAttribute('maxlength')) === 1 && isVisible(el),
+  );
+  if (siblings.length < 4 || siblings.length > 10) return null;
+  // Must be laid out on roughly one line.
+  const tops = siblings.map((el) => el.getBoundingClientRect().top);
+  if (Math.max(...tops) - Math.min(...tops) > 24) return null;
+  siblings.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+  return siblings;
+}
+
+/**
+ * Full page scan.
+ * @returns {{otp:{input:Element,group:Element[]|null,score:number}|null,
+ *            captchas:{input:Element,image:object,score:number}[]}}
+ */
+export function scanPage() {
+  const inputs = collectInputs();
+  let otpBest = null;
+  const captchas = [];
+
+  for (const input of inputs) {
+    // A lone single-char box only makes sense as part of a split OTP widget.
+    const group = findDigitGroup(input);
+    if (group) {
+      if (group[0] !== input) continue;
+      const owner = group.find((el) => classifyField(el)) || input;
+      const cls = classifyField(owner) || { kind: 'otp', score: 60, reasons: ['digit-group'] };
+      if (cls.kind === 'otp' && (!otpBest || cls.score > otpBest.score)) {
+        otpBest = { input, group, score: cls.score, reasons: cls.reasons };
+      }
+      continue;
+    }
+
+    const cls = classifyField(input);
+    if (!cls) continue;
+    if (cls.kind === 'otp') {
+      if (!otpBest || cls.score > otpBest.score) {
+        otpBest = { input, group: null, score: cls.score, reasons: cls.reasons };
+      }
+    } else {
+      captchas.push({ input, image: cls.image, score: cls.score, reasons: cls.reasons });
+    }
+  }
+
+  captchas.sort((a, b) => b.score - a.score);
+  return { otp: otpBest, captchas };
+}

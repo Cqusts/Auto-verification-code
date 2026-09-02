@@ -1,0 +1,20 @@
+{
+  "name": "auto-verification-code",
+  "version": "1.0.0",
+  "description": "Microsoft Edge / Chromium extension that auto-fills SMS one-time codes and locally OCRs image CAPTCHAs.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "vendor": "node scripts/fetch-vendor.mjs",
+    "icons": "python3 scripts/make-icons.py",
+    "check": "node --experimental-vm-modules scripts/check.mjs",
+    "test": "node scripts/test.mjs",
+    "test:browser": "node scripts/test.mjs --browser",
+    "build": "node scripts/build-zip.mjs",
+    "bridge": "node bridge/server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

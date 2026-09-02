@@ -1,0 +1,65 @@
+{
+  "manifest_version": 3,
+  "name": "Auto Verification Code · 自动验证码",
+  "version": "1.0.0",
+  "description": "自动接收短信验证码并填写，本地离线识别图片验证码。Auto-fills SMS one-time codes and locally OCRs image CAPTCHAs.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
+    "48": "assets/icons/icon-48.png",
+    "128": "assets/icons/icon-128.png"
+  },
+  "permissions": [
+    "storage",
+    "alarms",
+    "offscreen",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "clipboardRead",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "all_frames": true,
+      "run_at": "document_idle",
+      "js": ["src/content/loader.js"],
+      "css": ["src/content/overlay.css"]
+    }
+  ],
+  "action": {
+    "default_title": "Auto Verification Code",
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png",
+      "128": "assets/icons/icon-128.png"
+    }
+  },
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/content/*.js",
+        "src/common/*.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
