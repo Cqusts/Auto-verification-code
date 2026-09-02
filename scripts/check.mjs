@@ -164,6 +164,20 @@ async function main() {
   console.log('checking documentation links');
   await checkMarkdownLinks();
 
+  console.log('checking documented npm scripts');
+  // Docs that reference a script which no longer exists are how a removed
+  // feature keeps living in the README.
+  {
+    const known = new Set(Object.keys(pkg.scripts || {}));
+    for (const file of await markdownFiles(ROOT)) {
+      const src = await readFile(file, 'utf8');
+      const rel = path.relative(ROOT, file);
+      for (const m of src.matchAll(/\bnpm run ([a-z0-9:_-]+)/gi)) {
+        if (!known.has(m[1])) fail(`${rel}: documents "npm run ${m[1]}" which package.json does not define`);
+      }
+    }
+  }
+
   console.log('checking launcher scripts');
   for (const [name, mustContain] of [
     ['start-bridge.cmd', ['cd /d "%~dp0"', 'bridge\\server.mjs', 'pause']],

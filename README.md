@@ -35,7 +35,7 @@
 | **图片验证码识别** | 内置 Tesseract WASM 离线 OCR，自动预处理（二值化、去噪、放大）后识别 |
 | **智能字段识别** | 区分「短信验证码框」与「图片验证码框」，支持分格输入框、Shadow DOM、iframe |
 | **多种短信来源** | WebSocket 推送 / HTTP 轮询 / 剪贴板 / 手动粘贴 |
-| **开机自启** | 一条命令把桥接服务装成系统服务，Windows / macOS / Linux 均支持 |
+| **一键启动** | 双击启动脚本，或生成桌面快捷方式；脚本自动定位项目路径 |
 | **站点规则** | 全局黑名单，或只在白名单站点生效 |
 | **安全默认值** | 自动提交默认关闭；验证码只存在内存中，浏览器关闭即清除 |
 
@@ -166,6 +166,8 @@ npm run shortcut:remove   # 移除
 
 **启动时报 `EADDRINUSE`。** 端口 8787 已被占用，多半是之前启动的那个窗口还开着 —— 直接用它就行。找不到窗口了就在任务管理器里结束 `node.exe`，或换个端口：`start-bridge.cmd --port 8788`（记得同步改扩展设置里的 WebSocket 地址）。
 
+**iOS 快捷指令报 `kCFErrorDomainCFNetwork 错误 -1001`。** 请求超时 —— 自动化其实成功触发了，断的是网络。手机浏览器先打开 `http://电脑IP:8787/status`：能打开就是快捷指令配置问题，打不开就是 Windows 防火墙或不在同一 Wi-Fi。完整五步排查见 [docs/SMS-SETUP.md](docs/SMS-SETUP.md)。
+
 **短信来了但没填。** 按顺序查：桥接终端有没有打印那条短信 → 打印里的 `N client(s)` 是不是 0（0 表示扩展没连上，去设置点「测试连接」）→ 弹窗「最近验证码」有没有出现（有则说明解析成功，是页面上没找到输入框）→ 设置里开启「输出调试日志」后在「高级 → 运行日志」看具体原因。
 
 **验证码解析错了。** 在弹窗里把整条短信粘进去点「解析并填写」，能直接看出解析结果。取错数字就去 **设置 → 常规** 调「识别关键词」和长度范围。
@@ -176,10 +178,13 @@ npm run shortcut:remove   # 移除
 
 ```bash
 npm run check          # 静态检查：语法、JSON、manifest 引用、文档链接、依赖资源
-npm test               # 上面 + 短信解析 / 桥接协议 / 桥接服务 / 自启安装器
+npm test               # 上面 + 短信解析 / 桥接协议 / 网卡排序 / 桌面快捷方式 / 桥接服务
 npm run test:browser   # 追加：真实 Chromium 加载扩展跑完整链路（较慢）
 npm run build          # 打包 dist/*.zip
+npm run bridge         # 启动桥接服务（等价于双击 start-bridge.*）
+npm run shortcut       # 在桌面创建启动快捷方式
 npm run vendor         # 重新下载离线 OCR 资源
+npm run icons          # 重新生成扩展图标与 icon.ico
 npm run screenshots    # 重新生成 README 里的截图
 ```
 
@@ -188,6 +193,9 @@ npm run screenshots    # 重新生成 README 里的截图
 ### 项目结构
 
 ```
+start-bridge.cmd      Windows 启动脚本（双击即用）
+start-bridge.sh       macOS / Linux 启动脚本
+create-shortcut.cmd   在桌面创建启动快捷方式
 extension/            扩展本体（Manifest V3，无构建步骤）
   src/common/         三个上下文共用：配置、短信解析、特征库
   src/background/     service worker：消息路由、验证码仓库、站点规则
@@ -195,8 +203,8 @@ extension/            扩展本体（Manifest V3，无构建步骤）
   src/content/        页面侧：字段识别、拟真填写、验证码取图
   src/popup|options/  界面
   vendor/tesseract/   离线 OCR 资源
-bridge/               零依赖短信桥接服务（含手写 WebSocket 实现）+ 自启安装器
-scripts/              取依赖、生成图标、检查、测试、打包、截图
+bridge/               零依赖短信桥接服务（含手写 WebSocket 实现）
+scripts/              取依赖、生成图标、检查、测试、打包、截图、快捷方式
 test/fixtures/        浏览器端到端测试用的页面
 docs/                 文档
 ```
