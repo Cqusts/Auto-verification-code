@@ -1,10 +1,30 @@
 import { MSG } from '../common/constants.js';
-import { sendToRuntime, sendToTab } from '../common/messaging.js';
+import { sendToRuntime } from '../common/messaging.js';
 import { updateSettings } from '../common/settings.js';
 import { matchesAnyHost } from '../common/util.js';
 
 const $ = (id) => document.getElementById(id);
 let state = null;
+
+/** Chrome's raw messaging errors are useless to a user; say what to do instead. */
+const ERROR_TEXT = {
+  'no-active-tab': '找不到当前标签页。',
+  'not-injectable': '浏览器内置页面不允许扩展运行，请在普通网页上使用。',
+  'no-code': '没有可用的验证码，或已超过有效期。',
+  'no-captcha': '此页面上没有找到图片验证码。',
+  'site-not-allowed': '此站点已在设置中停用。',
+  'rate-limited': '识别过于频繁，请稍候再试。',
+  'captcha-disabled': '图片验证码识别已关闭。',
+};
+
+function explain(error) {
+  const key = String(error || '');
+  if (ERROR_TEXT[key]) return ERROR_TEXT[key];
+  if (/Receiving end does not exist|Could not establish connection/i.test(key)) {
+    return '页面脚本未注入，请刷新该页面后重试。';
+  }
+  return key || '未知错误';
+}
 
 function setMessage(text, kind = '') {
   const el = $('msg');
@@ -61,40 +81,32 @@ async function render() {
     $('last-actions').hidden = true;
   }
 
-  await renderPageState(activeTab, settings);
+  renderPageState(activeTab, settings);
 }
 
-async function renderPageState(activeTab, settings) {
+function renderPageState(activeTab, settings) {
   const el = $('page-state');
   const buttons = ['btn-rescan', 'btn-solve', 'btn-clip'];
-  if (!activeTab?.injectable) {
-    el.textContent = '不支持的页面';
+  const disable = (text) => {
+    el.textContent = text;
     buttons.forEach((id) => ($(id).disabled = true));
-    return;
-  }
-  if (!settings.enabled) {
-    el.textContent = '扩展已关闭';
-    buttons.forEach((id) => ($(id).disabled = true));
-    return;
-  }
-  if (!activeTab.allowed) {
-    el.textContent = '此站点已停用';
-    buttons.forEach((id) => ($(id).disabled = true));
-    return;
-  }
+  };
+
+  if (!activeTab?.injectable) return disable('不支持的页面');
+  if (!settings.enabled) return disable('扩展已关闭');
+  if (!activeTab.allowed) return disable('此站点已停用');
   buttons.forEach((id) => ($(id).disabled = false));
 
-  // Frame 0 keeps the answer deterministic; fields inside iframes still show up
-  // because the background registers them by frame.
-  const ping = await sendToTab(activeTab.id, MSG.PING, {}, { frameId: 0 });
-  if (!ping.ok) {
-    el.textContent = '页面未注入（请刷新）';
+  // The background already pinged the page (injecting first if the tab predates
+  // the extension), so this is just a readout.
+  const page = activeTab.page;
+  if (!page?.injected) {
+    el.textContent = '页面脚本未注入（请刷新页面）';
     return;
   }
   const parts = [];
-  const otpCount = (ping.data?.otp ? 1 : 0) + (activeTab.registeredFields || 0);
-  if (otpCount) parts.push('已找到验证码输入框');
-  if (ping.data?.captchas) parts.push(`${ping.data.captchas} 个图片验证码`);
+  if (page.otp || activeTab.registeredFields) parts.push('已找到验证码输入框');
+  if (page.captchas) parts.push(`${page.captchas} 个图片验证码`);
   el.textContent = parts.length ? parts.join(' · ') : '未发现验证码字段';
 }
 
@@ -130,7 +142,7 @@ $('btn-site-toggle').addEventListener('click', async () => {
 $('btn-rescan').addEventListener('click', (event) =>
   withBusy(event.target, async () => {
     const res = await sendToRuntime(MSG.RESCAN_ACTIVE_TAB);
-    setMessage(res.ok ? '已重新扫描页面。' : `扫描失败：${res.error}`, res.ok ? 'ok' : 'err');
+    setMessage(res.ok ? '已重新扫描页面。' : `扫描失败：${explain(res.error)}`, res.ok ? 'ok' : 'err');
     await render();
   }),
 );
@@ -138,37 +150,28 @@ $('btn-rescan').addEventListener('click', (event) =>
 $('btn-solve').addEventListener('click', (event) =>
   withBusy(event.target, async () => {
     const res = await sendToRuntime(MSG.SOLVE_ACTIVE_TAB);
-    const data = res.data?.data ?? res.data;
-    if (!res.ok) setMessage(`识别失败：${res.error}`, 'err');
-    else if (data?.ok) setMessage(`识别结果：${data.text}（${data.confidence}%）`, 'ok');
-    else setMessage(`未能识别：${data?.reason || '未知原因'}`, 'err');
+    if (!res.ok) setMessage(`识别失败：${explain(res.error)}`, 'err');
+    else if (res.data?.ok) setMessage(`识别结果：${res.data.text}（${res.data.confidence}%）`, 'ok');
+    else setMessage(`未能识别：${explain(res.data?.reason)}`, 'err');
   }),
 );
 
 $('btn-clip').addEventListener('click', (event) =>
   withBusy(event.target, async () => {
-    const tabId = state?.activeTab?.id;
-    if (!tabId) return;
-    const res = await sendToTab(tabId, MSG.READ_CLIPBOARD, {});
-    const data = res.data;
-    if (data?.ok) setMessage(`已从剪贴板填入 ${data.code}`, 'ok');
-    else setMessage(`剪贴板未找到验证码（${data?.reason || res.error}）`, 'err');
+    const res = await sendToRuntime(MSG.CLIPBOARD_ACTIVE_TAB);
+    if (!res.ok) setMessage(`读取失败：${explain(res.error)}`, 'err');
+    else if (res.data?.ok) setMessage(`已从剪贴板填入 ${res.data.code}`, 'ok');
+    else setMessage(`剪贴板里没有验证码（${explain(res.data?.reason)}）`, 'err');
   }),
 );
 
 $('btn-fill-last').addEventListener('click', (event) =>
   withBusy(event.target, async () => {
-    const tabId = state?.activeTab?.id;
-    const latest = state?.codes?.[0];
-    if (!tabId || !latest) return;
-    const codeRes = await sendToRuntime(MSG.REQUEST_LATEST_CODE);
-    const code = codeRes.data?.code;
-    if (!code) {
-      setMessage('验证码已过期。', 'err');
-      return;
-    }
-    const res = await sendToTab(tabId, MSG.FILL_TEXT, { code, codeId: latest.id });
-    setMessage(res.data?.filled ? '已填入。' : `填写失败：${res.data?.reason || res.error}`, res.data?.filled ? 'ok' : 'err');
+    const res = await sendToRuntime(MSG.FILL_ACTIVE_TAB);
+    if (!res.ok) setMessage(`填写失败：${explain(res.error)}`, 'err');
+    else if (res.data?.filled) setMessage('已填入。', 'ok');
+    else setMessage(`填写失败：${explain(res.data?.reason)}`, 'err');
+    await render();
   }),
 );
 
@@ -186,8 +189,8 @@ $('btn-manual').addEventListener('click', (event) =>
     }
     const data = res.data;
     if (data.delivered) setMessage('已解析并填入页面。', 'ok');
-    else if (data.stored) setMessage('已解析，但页面上没有可填写的输入框。', '');
-    else setMessage(`未识别出验证码（${data.reason}）`, 'err');
+    else if (data.stored) setMessage('已解析。页面上暂无可填写的输入框，可点上方「填入当前页面」。', '');
+    else setMessage(`未识别出验证码（${explain(data.reason)}）`, 'err');
     $('manual').value = '';
     await render();
   }),

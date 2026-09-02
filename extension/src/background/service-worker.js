@@ -8,6 +8,7 @@ import { hostnameOf, maskCode, RateLimiter } from '../common/util.js';
 import { codeStore, fieldRegistry } from './state.js';
 import { ensureOffscreen, closeOffscreen, callOffscreen, hasOffscreen } from './offscreen.js';
 import { captureVisibleTab, fetchImageAsDataUrl } from './image.js';
+import { injectInto, injectIntoOpenTabs, isNoReceiverError } from './inject.js';
 
 const ALARM_TICK = 'avc-tick';
 
@@ -33,11 +34,16 @@ async function boot() {
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   await boot();
+  // Tabs opened before this install/update have no content script yet.
+  await injectIntoOpenTabs();
   if (details.reason === 'install') {
     chrome.runtime.openOptionsPage?.();
   }
 });
-chrome.runtime.onStartup.addListener(boot);
+chrome.runtime.onStartup.addListener(async () => {
+  await boot();
+  await injectIntoOpenTabs();
+});
 boot().catch((err) => log.error('bg', 'boot failed', err));
 
 onSettingsChanged(async (settings) => {
@@ -338,6 +344,12 @@ registerHandlers({
     const [active] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
     const host = hostnameOf(active?.url || '');
     const fields = active?.id != null ? (await fieldRegistry.list()).filter((f) => f.tabId === active.id) : [];
+    // Ask the page what it can see, injecting first if this tab predates the extension.
+    let page = null;
+    if (active?.id != null && isInjectableUrl(active.url)) {
+      const ping = await sendToTabOrInject(active.id, MSG.PING, {}, { frameId: 0 });
+      page = ping.ok ? { ...ping.data, injected: true } : { injected: false, error: ping.error };
+    }
     return {
       settings,
       bridgeStatus,
@@ -351,6 +363,7 @@ registerHandlers({
             allowed: isSiteAllowed(host, settings),
             // Fields living in sub-frames are known here even when the top frame has none.
             registeredFields: fields.length,
+            page,
           }
         : null,
     };
@@ -363,15 +376,43 @@ registerHandlers({
   },
 
   [MSG.RESCAN_ACTIVE_TAB]: async () => {
-    const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!active?.id) throw new Error('no-active-tab');
-    return sendToTab(active.id, MSG.TRIGGER_SCAN, {});
+    const active = await activeTabOrThrow();
+    const res = await sendToTabOrInject(active.id, MSG.TRIGGER_SCAN, {});
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
   },
 
   [MSG.SOLVE_ACTIVE_TAB]: async () => {
-    const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!active?.id) throw new Error('no-active-tab');
-    return sendToTab(active.id, MSG.TRIGGER_CAPTCHA, { manual: true });
+    const active = await activeTabOrThrow();
+    const res = await sendToTabOrInject(active.id, MSG.TRIGGER_CAPTCHA, { manual: true });
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
+  },
+
+  [MSG.FILL_ACTIVE_TAB]: async () => {
+    const active = await activeTabOrThrow();
+    const settings = await getSettings();
+    const entry = await codeStore.latest({
+      maxAgeMs: settings.otp.ttlSeconds * 1000,
+      unconsumedOnly: false,
+    });
+    if (!entry) throw new Error('no-code');
+    const res = await sendToTabOrInject(active.id, MSG.FILL_TEXT, {
+      code: entry.code,
+      codeId: entry.id,
+      source: entry.source,
+    });
+    if (!res.ok) throw new Error(res.error);
+    if (res.data?.filled) await codeStore.markConsumed(entry.id, { tabId: active.id });
+    await refreshBadge();
+    return res.data;
+  },
+
+  [MSG.CLIPBOARD_ACTIVE_TAB]: async () => {
+    const active = await activeTabOrThrow();
+    const res = await sendToTabOrInject(active.id, MSG.READ_CLIPBOARD, {});
+    if (!res.ok) throw new Error(res.error);
+    return res.data;
   },
 
   [MSG.TEST_BRIDGE]: async (payload) => {
@@ -400,6 +441,25 @@ registerHandlers({
 
   [MSG.GET_LOGS]: async () => ({ logs: getLogs() }),
 });
+
+/**
+ * Messages a tab, injecting the content script and retrying once when the tab
+ * turns out not to have one (extension installed or reloaded after the page).
+ */
+async function sendToTabOrInject(tabId, type, payload = {}, options = {}) {
+  const first = await sendToTab(tabId, type, payload, options);
+  if (first.ok || !isNoReceiverError(first.error)) return first;
+  if (!(await injectInto(tabId))) return { ok: false, error: 'not-injectable' };
+  return sendToTab(tabId, type, payload, options);
+}
+
+/** Resolves the active tab, or throws a reason the UI can show verbatim. */
+async function activeTabOrThrow() {
+  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!active?.id) throw new Error('no-active-tab');
+  if (!isInjectableUrl(active.url)) throw new Error('not-injectable');
+  return active;
+}
 
 /** The slice of settings a content script is allowed to see. */
 function publicSettings(settings) {

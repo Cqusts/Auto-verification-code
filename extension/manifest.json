@@ -14,7 +14,8 @@
     "storage",
     "alarms",
     "offscreen",
-    "tabs"
+    "tabs",
+    "scripting"
   ],
   "optional_permissions": [
     "clipboardRead",

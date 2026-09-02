@@ -29,6 +29,8 @@ export const MSG = {
   SUBMIT_MANUAL_CODE: 'ui:submit-manual-code',
   RESCAN_ACTIVE_TAB: 'ui:rescan-active-tab',
   SOLVE_ACTIVE_TAB: 'ui:solve-active-tab',
+  FILL_ACTIVE_TAB: 'ui:fill-active-tab',
+  CLIPBOARD_ACTIVE_TAB: 'ui:clipboard-active-tab',
   TEST_BRIDGE: 'ui:test-bridge',
   TEST_OCR: 'ui:test-ocr',
   CLEAR_HISTORY: 'ui:clear-history',

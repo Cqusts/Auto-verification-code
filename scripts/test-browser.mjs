@@ -184,7 +184,30 @@ async function main() {
     check('split-box OTP widget filled', boxes === '135790', `value=${JSON.stringify(boxes)}`);
 
     if (errors.length) console.log('  (captured page events)\n' + errors.map((e) => `    - ${e}`).join('\n'));
-    // ---- 5. UI pages render cleanly ---------------------------------------
+    // ---- 5. programmatic injection recovers a tab with no content script ---
+    const injected = await worker.evaluate(async (site) => {
+      const [tab] = await chrome.tabs.query({ url: `${site}/*` });
+      if (!tab) return { error: 'no-tab' };
+      // Re-injecting must be a harmless no-op: this is the path that repairs a
+      // tab which was already open when the extension loaded.
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        files: ['src/content/loader.js'],
+      });
+      const pong = await chrome.tabs
+        .sendMessage(tab.id, { type: 'bg:ping', payload: {} }, { frameId: 0 })
+        .catch((e) => ({ error: e.message }));
+      return { pong };
+    }, `http://127.0.0.1:${SITE_PORT}`);
+    check('re-injecting the content script is a safe no-op', injected?.pong?.data?.pong === true, JSON.stringify(injected));
+
+    // A browser-internal page must produce our own reason, not Chrome's raw string.
+    await options.bringToFront();
+    await options.waitForTimeout(200);
+    const guard = await options.evaluate(() => chrome.runtime.sendMessage({ type: 'ui:rescan-active-tab', payload: {} }));
+    check('non-injectable tab reports a friendly reason', guard?.error === 'not-injectable', JSON.stringify(guard));
+
+    // ---- 6. UI pages render cleanly ---------------------------------------
     for (const [name, file, probe] of [
       ['popup', 'src/popup/popup.html', '#btn-manual'],
       ['options', 'src/options/options.html', '#tabs'],
