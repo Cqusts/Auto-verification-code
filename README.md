@@ -99,13 +99,15 @@ curl -X POST "http://127.0.0.1:8787/sms?token=你的令牌" \
 
 然后让手机把验证码短信转发过来 —— Android 用「短信转发器」类 App，iOS 用系统自带的「快捷指令」自动化，两者的完整步骤见 [docs/SMS-SETUP.md](docs/SMS-SETUP.md)。
 
-不想每次开机手动启动，装成自启即可：
+不想每次开机手动启动，装成自启即可 —— 在你自己的电脑上跑一次，之后开机自动运行：
 
 ```bash
 npm run autostart:install     # 安装（不需要管理员权限）
 npm run autostart             # 查看状态和令牌
 npm run autostart:uninstall   # 关闭自启
 ```
+
+扩展本体和图片验证码识别本来就随浏览器启动，不需要这一步；自启只影响短信通路。注意安装时会记录绝对路径，之后**别移动仓库目录**，详见 [docs/AUTOSTART.md](docs/AUTOSTART.md)。
 
 <p align="center">
   <img src="docs/images/popup.png" alt="扩展弹窗" width="320">
