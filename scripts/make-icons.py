@@ -113,12 +113,41 @@ def write_png(path, size, rgba):
     path.write_bytes(png)
 
 
+def write_ico(path, pngs):
+    """ICO container holding PNG-compressed images (supported since Vista).
+
+    Windows shortcuts need an .ico; reusing the PNGs we already rendered keeps
+    the icon identical to the extension's.
+    """
+    count = len(pngs)
+    header = struct.pack("<HHH", 0, 1, count)
+    offset = 6 + 16 * count
+    entries, blobs = b"", b""
+    for size, blob in pngs:
+        entries += struct.pack(
+            "<BBBBHHII",
+            size if size < 256 else 0,
+            size if size < 256 else 0,
+            0, 0, 1, 32,
+            len(blob), offset,
+        )
+        blobs += blob
+        offset += len(blob)
+    path.write_bytes(header + entries + blobs)
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
+    rendered = []
     for size in SIZES:
         path = OUT / f"icon-{size}.png"
         write_png(path, size, render(size))
+        rendered.append((size, path.read_bytes()))
         print(f"  {path.name}  {path.stat().st_size} bytes")
+
+    ico = OUT / "icon.ico"
+    write_ico(ico, rendered)
+    print(f"  {ico.name}  {ico.stat().st_size} bytes")
 
 
 if __name__ == "__main__":

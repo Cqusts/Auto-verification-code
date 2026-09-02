@@ -12,6 +12,7 @@
 - 四种来源：WebSocket 推送、HTTP 轮询、剪贴板、手动粘贴
 - 零依赖本地桥接服务（`bridge/server.mjs`，含手写 WebSocket 实现），令牌鉴权，接受 JSON / 表单 / 纯文本三种 webhook 格式
 - 双击即用的启动脚本（`start-bridge.cmd` / `start-bridge.sh`），自动定位项目路径
+- 一键生成桌面快捷方式（`create-shortcut.cmd` / `npm run shortcut`），Windows / macOS / Linux 三平台
 - 令牌持久化保存，每次启动不变，扩展里只需填写一次
 
 ### 图片验证码

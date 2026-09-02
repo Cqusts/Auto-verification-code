@@ -13,7 +13,9 @@
     "test": "node scripts/test.mjs",
     "test:browser": "node scripts/test.mjs --browser",
     "build": "node scripts/build-zip.mjs",
-    "bridge": "node bridge/server.mjs"
+    "bridge": "node bridge/server.mjs",
+    "shortcut": "node scripts/make-shortcut.mjs",
+    "shortcut:remove": "node scripts/make-shortcut.mjs --remove"
   },
   "engines": {
     "node": ">=18"

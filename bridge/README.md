@@ -20,6 +20,8 @@ node bridge/server.mjs [--port 8787] [--host 0.0.0.0] [--token secret] [--histor
 
 日常启动推荐直接双击项目根目录下的 **`start-bridge.cmd`**（Windows）或 **`start-bridge.sh`**（macOS / Linux）—— 脚本会自己定位项目路径，仓库移动位置也不用改。
 
+再嫌麻烦就双击一次 **`create-shortcut.cmd`**（或 `npm run shortcut`），在桌面生成一个带图标的启动入口，以后点桌面图标即可。
+
 ## 接口
 
 | 方法 | 路径 | 说明 |

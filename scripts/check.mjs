@@ -168,6 +168,7 @@ async function main() {
   for (const [name, mustContain] of [
     ['start-bridge.cmd', ['cd /d "%~dp0"', 'bridge\\server.mjs', 'pause']],
     ['start-bridge.sh', ['BASH_SOURCE', 'bridge/server.mjs']],
+    ['create-shortcut.cmd', ['cd /d "%~dp0"', 'make-shortcut.mjs', 'pause']],
   ]) {
     const full = path.join(ROOT, name);
     if (!existsSync(full)) {

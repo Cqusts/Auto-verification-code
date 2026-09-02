@@ -12,6 +12,7 @@ const suites = [
   ['sms parser', ['scripts/test-extract.mjs']],
   ['bridge payloads', ['scripts/test-bridge-parse.mjs']],
   ['lan address ranking', ['scripts/test-net.mjs']],
+  ['desktop shortcut', ['scripts/test-shortcut.mjs']],
   ['injection predicates', ['scripts/test-inject.mjs']],
   ['bridge server', ['scripts/test-bridge.mjs']],
   ...(withBrowser ? [['browser end-to-end', ['scripts/test-browser.mjs']]] : []),
