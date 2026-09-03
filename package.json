@@ -14,6 +14,7 @@
     "test:browser": "node scripts/test.mjs --browser",
     "build": "node scripts/build-zip.mjs",
     "bridge": "node bridge/server.mjs",
+    "doctor": "node scripts/doctor.mjs",
     "shortcut": "node scripts/make-shortcut.mjs",
     "shortcut:remove": "node scripts/make-shortcut.mjs --remove"
   },

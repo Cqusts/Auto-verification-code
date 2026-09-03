@@ -15,6 +15,7 @@ const suites = [
   ['desktop shortcut', ['scripts/test-shortcut.mjs']],
   ['injection predicates', ['scripts/test-inject.mjs']],
   ['bridge server', ['scripts/test-bridge.mjs']],
+  ['network doctor', ['scripts/test-doctor.mjs']],
   ...(withBrowser ? [['browser end-to-end', ['scripts/test-browser.mjs']]] : []),
 ];
 

@@ -18,6 +18,7 @@ const EXT = path.join(ROOT, 'extension');
 const FIXTURES = path.join(ROOT, 'test', 'fixtures');
 const BRIDGE_PORT = 8793;
 const SITE_PORT = 8794;
+const OCR_PORT = 8795;
 const TOKEN = 'browser-test-token';
 const HEADED = process.argv.includes('--headed');
 
@@ -28,6 +29,29 @@ const check = (name, ok, extra = '') => {
   if (ok) { pass += 1; console.log(`  ok   ${name}`); }
   else { fail += 1; console.log(`  FAIL ${name}${extra ? ` — ${extra}` : ''}`); }
 };
+
+/** Speaks exactly the contract documented for ocr-server/server.py. */
+function startMockOcr(port, received) {
+  const server = http.createServer((req, res) => {
+    if (req.url !== '/ocr' || req.method !== 'POST') {
+      res.writeHead(404).end();
+      return;
+    }
+    let body = '';
+    req.on('data', (d) => (body += d));
+    req.on('end', () => {
+      received.contentType = req.headers['content-type'] || '';
+      try {
+        received.payload = JSON.parse(body);
+      } catch {
+        received.payload = null;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ result: 'A7c2' }));
+    });
+  });
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
+}
 
 function startSite() {
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
@@ -162,6 +186,97 @@ async function main() {
     );
     const ocrText = ocr?.data?.text;
     check('local OCR reads a clean 6-digit image', ocrText === '582617', `got=${JSON.stringify(ocrText)} conf=${ocr?.data?.confidence}`);
+
+    // ---- 3b. despeckle must run before upscaling ---------------------------
+    // Pure salt-and-pepper with no glyphs: a working noise filter leaves the
+    // preview essentially blank. Cleaning after the upscale cannot, because
+    // each noisy pixel has become a solid scale×scale block.
+    const noisy = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 90;
+      canvas.height = 34;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Deterministic PRNG so the assertion cannot flake.
+      let seed = 20260902;
+      const rand = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+      ctx.fillStyle = '#000';
+      for (let i = 0; i < 260; i += 1) {
+        ctx.fillRect(Math.floor(rand() * canvas.width), Math.floor(rand() * canvas.height), 1, 1);
+      }
+      return canvas.toDataURL('image/png');
+    });
+    const noiseRes = await options.evaluate(
+      async (dataUrl) =>
+        chrome.runtime.sendMessage({ type: 'ui:test-ocr', payload: { dataUrl, overrides: { expectedLength: 4 } } }),
+      noisy,
+    );
+    const darkFraction = await page.evaluate(
+      (preview) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width;
+            c.height = img.height;
+            const cx = c.getContext('2d');
+            cx.drawImage(img, 0, 0);
+            const { data } = cx.getImageData(0, 0, c.width, c.height);
+            let dark = 0;
+            for (let i = 0; i < data.length; i += 4) if (data[i] < 128) dark += 1;
+            resolve(dark / (data.length / 4));
+          };
+          img.onerror = () => resolve(1);
+          img.src = preview;
+        }),
+      noiseRes?.data?.preview,
+    );
+    // A blank result must still hand back the preprocessed image: that picture is
+    // the only way to tell "the filter ate everything" from "the engine failed".
+    check('a preview is returned even when nothing is recognised', Boolean(noiseRes?.data?.preview));
+    check(
+      'noise is removed before upscaling',
+      darkFraction < 0.02,
+      `dark=${(darkFraction * 100).toFixed(1)}%`,
+    );
+
+    // ---- 3c. the self-hosted OCR contract ----------------------------------
+    // ocr-server/server.py cannot run here (no flask), so pin the half we own:
+    // what the extension sends, and how it reads the reply back.
+    const ocrReceived = {};
+    const mockOcr = await startMockOcr(OCR_PORT, ocrReceived);
+    try {
+      const remote = await options.evaluate(
+        async ({ dataUrl, url }) =>
+          chrome.runtime.sendMessage({
+            type: 'ui:test-ocr',
+            payload: {
+              dataUrl,
+              overrides: {
+                provider: 'http',
+                charset: 'alnum',
+                expectedLength: 4,
+                http: {
+                  url,
+                  method: 'POST',
+                  format: 'json-base64',
+                  fieldName: 'image',
+                  responsePath: 'result',
+                  timeoutMs: 8000,
+                },
+              },
+            },
+          }),
+        { dataUrl: clean, url: `http://127.0.0.1:${OCR_PORT}/ocr` },
+      );
+      check('http OCR posts JSON', ocrReceived.contentType.includes('application/json'), ocrReceived.contentType);
+      check('http OCR sends base64 under the configured field', typeof ocrReceived.payload?.image === 'string' && ocrReceived.payload.image.length > 100);
+      check('http OCR sends no data: prefix', !String(ocrReceived.payload?.image || '').startsWith('data:'));
+      check('http OCR reads the configured response path', remote?.data?.text === 'A7c2', JSON.stringify(remote?.data));
+    } finally {
+      mockOcr.close();
+    }
 
     // ---- 4. split-box widget ------------------------------------------------
     await page.evaluate(() => {

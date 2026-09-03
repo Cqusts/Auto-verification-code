@@ -123,7 +123,11 @@ export async function recognize({ dataUrl, crop = null, captcha }) {
     },
   ];
 
-  let best = { text: '', confidence: 0, score: -1, variant: 'none', preview: '' };
+  // -Infinity, not -1: scoreCandidate() returns -1 for an empty result, so a
+  // -1 seed means no variant ever wins when every attempt reads nothing — and
+  // the caller gets back no preprocessed preview at all, which is exactly the
+  // case where someone needs to see it to work out why.
+  let best = { text: '', confidence: 0, score: -Infinity, variant: 'none', preview: '' };
   let attempts = 0;
 
   for (const variant of variants) {

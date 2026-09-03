@@ -32,7 +32,7 @@
 | | |
 | --- | --- |
 | **短信验证码自动填写** | 从你自己运行的本地桥接服务接收短信，打分式解析出验证码后填入页面 |
-| **图片验证码识别** | 内置 Tesseract WASM 离线 OCR，自动预处理（二值化、去噪、放大）后识别 |
+| **图片验证码识别** | 内置 Tesseract WASM 离线 OCR，自动预处理（二值化、去噪、放大）后识别；可切换到本地 ddddocr 应对扭曲/干扰线验证码 |
 | **智能字段识别** | 区分「短信验证码框」与「图片验证码框」，支持分格输入框、Shadow DOM、iframe |
 | **多种短信来源** | WebSocket 推送 / HTTP 轮询 / 剪贴板 / 手动粘贴 |
 | **一键启动** | 双击启动脚本，或生成桌面快捷方式；脚本自动定位项目路径 |
@@ -172,7 +172,9 @@ npm run shortcut:remove   # 移除
 
 **验证码解析错了。** 在弹窗里把整条短信粘进去点「解析并填写」，能直接看出解析结果。取错数字就去 **设置 → 常规** 调「识别关键词」和长度范围。
 
-**图片验证码识别不准。** 用识别测试拖入图片，先看「预处理后」那张 —— 人眼都费劲的话 OCR 一定不行。调参对照表见 [docs/OCR.md](docs/OCR.md)。
+**图片验证码识别不准。** 先用识别测试拖入图片，看「预处理后」那张 —— 人眼都费劲的话 OCR 一定不行，调参对照表见 [docs/OCR.md](docs/OCR.md)。
+
+但如果验证码属于**整体扭曲、有贯穿干扰线、彩色噪点背景**这几类，调参是白费力气 —— 内置的 Tesseract 按印刷体训练，对这类图基本无解。换引擎：`pip install ddddocr flask`，然后双击 `start-ocr.cmd`，在设置里把识别引擎改成「自建 HTTP 接口」。ddddocr 正是拿这类国内验证码训练的。
 
 ## 开发
 
@@ -194,6 +196,7 @@ npm run screenshots    # 重新生成 README 里的截图
 
 ```
 start-bridge.cmd      Windows 启动脚本（双击即用）
+start-ocr.cmd         启动本地 ddddocr 识别服务（可选，应对难验证码）
 start-bridge.sh       macOS / Linux 启动脚本
 create-shortcut.cmd   在桌面创建启动快捷方式
 extension/            扩展本体（Manifest V3，无构建步骤）
@@ -204,6 +207,7 @@ extension/            扩展本体（Manifest V3，无构建步骤）
   src/popup|options/  界面
   vendor/tesseract/   离线 OCR 资源
 bridge/               零依赖短信桥接服务（含手写 WebSocket 实现）
+ocr-server/           可选的本地 ddddocr 识别服务（Python）
 scripts/              取依赖、生成图标、检查、测试、打包、截图、快捷方式
 test/fixtures/        浏览器端到端测试用的页面
 docs/                 文档

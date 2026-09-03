@@ -39,6 +39,32 @@ const QUIET = args.includes('--quiet');
 
 const messages = [];
 const sockets = new Set();
+/** Remote IPs already announced, so one phone does not spam the log. */
+const seenRemotes = new Set();
+
+/** `::ffff:192.168.1.5` and `::1` are the shapes Node hands back. */
+function normalizeRemote(address) {
+  return String(address || '').replace(/^::ffff:/, '');
+}
+
+function isLoopback(address) {
+  return address === '127.0.0.1' || address === '::1' || address.startsWith('127.');
+}
+
+/**
+ * The single most useful diagnostic when setting up a phone: proof that a packet
+ * from another device actually arrived. Without it, "it doesn't work" is
+ * indistinguishable between a firewall drop, a wrong IP and a wrong Wi-Fi.
+ */
+function noteRemote(req) {
+  const address = normalizeRemote(req.socket?.remoteAddress);
+  if (!address || isLoopback(address) || seenRemotes.has(address)) return;
+  seenRemotes.add(address);
+  console.log('');
+  console.log(`  ✓ 收到来自 ${address} 的请求（${req.method} ${req.url?.split('?')[0]}）`);
+  console.log('    这台设备能连上桥接服务了 —— 网络和防火墙都没问题。');
+  console.log('');
+}
 
 function record(text, meta = {}) {
   const entry = {
@@ -136,6 +162,7 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (!QUIET) noteRemote(req);
 
   if (req.method === 'OPTIONS') return send(res, 204, '');
 

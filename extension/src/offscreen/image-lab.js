@@ -121,17 +121,30 @@ export function preprocess(bitmap, crop, opts = {}, { invert = false, binarize =
   const outW = Math.round(innerW * factor);
   const outH = Math.round(innerH * factor);
 
-  const canvas = toCanvas(outW + PADDING * 2, outH + PADDING * 2);
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(source, trim, trim, innerW, innerH, PADDING, PADDING, outW, outH);
+  if (!enabled) {
+    const plain = toCanvas(outW + PADDING * 2, outH + PADDING * 2);
+    const plainCtx = plain.getContext('2d');
+    plainCtx.fillStyle = '#ffffff';
+    plainCtx.fillRect(0, 0, plain.width, plain.height);
+    plainCtx.imageSmoothingEnabled = true;
+    plainCtx.imageSmoothingQuality = 'high';
+    plainCtx.drawImage(source, trim, trim, innerW, innerH, PADDING, PADDING, outW, outH);
+    return plain;
+  }
 
-  if (!enabled) return canvas;
+  // Clean up at the source resolution *before* upscaling.
+  //
+  // Doing it the other way round silently disables noise removal: a single
+  // noisy pixel becomes a scale×scale block, and every pixel inside that block
+  // has a full set of dark neighbours, so the despeckle filter — which only
+  // removes pixels that are nearly isolated — can no longer see it as noise.
+  const work = toCanvas(innerW, innerH);
+  const workCtx = work.getContext('2d', { willReadFrequently: true });
+  workCtx.fillStyle = '#ffffff';
+  workCtx.fillRect(0, 0, innerW, innerH);
+  workCtx.drawImage(source, trim, trim, innerW, innerH, 0, 0, innerW, innerH);
 
-  const image = ctx.getImageData(PADDING, PADDING, outW, outH);
+  const image = workCtx.getImageData(0, 0, innerW, innerH);
   const { data } = image;
   const histogram = new Uint32Array(256);
   let sum = 0;
@@ -167,7 +180,12 @@ export function preprocess(bitmap, crop, opts = {}, { invert = false, binarize =
       data[i + 1] = v;
       data[i + 2] = v;
     }
-    if (despeckleOpt) despeckle(data, outW, outH);
+    // Two passes: the first breaks noise clusters up, the second clears the
+    // leftovers that only became isolated once their neighbours were removed.
+    if (despeckleOpt) {
+      despeckle(data, innerW, innerH);
+      despeckle(data, innerW, innerH);
+    }
   } else if (shouldInvert) {
     for (let i = 0; i < data.length; i += 4) {
       const v = 255 - data[i];
@@ -176,8 +194,17 @@ export function preprocess(bitmap, crop, opts = {}, { invert = false, binarize =
       data[i + 2] = v;
     }
   }
+  workCtx.putImageData(image, 0, 0);
 
-  ctx.putImageData(image, PADDING, PADDING);
+  // Now scale the cleaned bitmap up. Smoothing is deliberate: Tesseract reads
+  // anti-aliased edges better than hard blocky ones.
+  const canvas = toCanvas(outW + PADDING * 2, outH + PADDING * 2);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(work, 0, 0, innerW, innerH, PADDING, PADDING, outW, outH);
   return canvas;
 }
 

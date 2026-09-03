@@ -50,29 +50,30 @@
 
 识别不出来时，扩展会点击验证码图片触发换图并重试，次数受「换图重试次数」限制（上限 3 次，默认 2 次），另有每分钟最多 12 次识别的硬性频率限制，避免异常情况下打爆站点接口。
 
-## 接入自建 OCR 服务
+## 换引擎：ddddocr
 
-内置引擎认不出某类验证码时，可以换成本机运行的专用模型（如 [ddddocr](https://github.com/sml2h3/ddddocr)），它对国内验证码的准确率通常明显更高。
+**下面这几类验证码，调参救不回来，换引擎才有用：**
 
-一个最小的 ddddocr HTTP 服务：
+- 整张图做几何扭曲 / 波浪形变的
+- 有贯穿字符的粗干扰线的
+- 彩色背景 + 彩色噪点、字符与背景色接近的
+- 字符严重粘连、互相重叠的
 
-```python
-# pip install ddddocr flask
-import base64, ddddocr
-from flask import Flask, request, jsonify
+内置的 Tesseract 是按印刷体训练的，对这几类基本无解 —— 不是参数没调好。
+[ddddocr](https://github.com/sml2h3/ddddocr) 恰好是拿这类国内验证码训练的，准确率通常高一个档次。
 
-app = Flask(__name__)
-ocr = ddddocr.DdddOcr(show_ad=False)
+仓库里已经带了可直接运行的服务，不用自己写代码：
 
-@app.post("/ocr")
-def solve():
-    image = request.get_json(force=True)["image"]
-    return jsonify(result=ocr.classification(base64.b64decode(image)))
-
-app.run(host="127.0.0.1", port=9898)
+```bash
+pip install ddddocr flask
 ```
 
-扩展设置 → **图片验证码**：
+然后双击 **`start-ocr.cmd`**（Windows）或 **`./start-ocr.sh`**（macOS / Linux）。
+
+> ddddocr 在 Python 3.8–3.11 上兼容性最好。3.12+ 装不上时可以试 `pip install ddddocr --no-deps`，
+> 或者用 3.11 建一个虚拟环境。
+
+服务启动后会把要填的配置直接打印出来。扩展设置 → **图片验证码**：
 
 | 字段 | 值 |
 | --- | --- |
@@ -81,6 +82,12 @@ app.run(host="127.0.0.1", port=9898)
 | 提交格式 | JSON + base64 |
 | 字段名 | `image` |
 | 结果 JSON 路径 | `result` |
+
+改完直接用 **识别测试** 拖一张图进去验证，能立刻看出新引擎认不认得。
+
+想换成别的服务（PaddleOCR、自己训练的模型等）也一样：只要接受
+`POST {"image":"<base64>"}` 并返回 `{"result":"..."}` 就能对接，
+或者按上面的表调整字段名和结果路径。
 
 另外两种提交格式：`multipart/form-data`（文件字段名即「字段名」）和原始二进制（请求体就是 PNG 字节）。若接口直接返回纯文本结果，「结果 JSON 路径」留空即可。
 

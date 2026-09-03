@@ -183,6 +183,8 @@ async function main() {
     ['start-bridge.cmd', ['cd /d "%~dp0"', 'bridge\\server.mjs', 'pause']],
     ['start-bridge.sh', ['BASH_SOURCE', 'bridge/server.mjs']],
     ['create-shortcut.cmd', ['cd /d "%~dp0"', 'make-shortcut.mjs', 'pause']],
+    ['start-ocr.cmd', ['cd /d "%~dp0"', 'ocr-server\\server.py', 'pause']],
+    ['start-ocr.sh', ['BASH_SOURCE', 'ocr-server/server.py']],
   ]) {
     const full = path.join(ROOT, name);
     if (!existsSync(full)) {

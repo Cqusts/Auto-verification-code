@@ -134,6 +134,30 @@ async function main() {
 
     ws.socket.destroy();
 
+    // Proof-of-arrival logging: the decisive signal when setting up a phone.
+    const lan = (await import('../bridge/net.mjs')).rankAddresses()[0]?.address;
+    if (lan) {
+      const probe = spawn('node', [path.join(ROOT, 'bridge', 'server.mjs'), '--port', String(PORT + 1)], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      let out = '';
+      probe.stdout.on('data', (d) => (out += d));
+      await sleep(900);
+      await fetch(`http://127.0.0.1:${PORT + 1}/status`).catch(() => {});
+      await sleep(200);
+      check('loopback requests are not announced', !out.includes('收到来自'), out.slice(-160));
+      await fetch(`http://${lan}:${PORT + 1}/status`).catch(() => {});
+      await sleep(300);
+      check('a request from another address is announced', out.includes(`收到来自 ${lan}`), out.slice(-200));
+      const before = (out.match(/收到来自/g) || []).length;
+      await fetch(`http://${lan}:${PORT + 1}/status`).catch(() => {});
+      await sleep(300);
+      check('the same device is only announced once', (out.match(/收到来自/g) || []).length === before);
+      probe.kill('SIGKILL');
+    } else {
+      console.log('  skip  inbound announcement (no non-loopback address here)');
+    }
+
     // A second instance on the same port must explain itself, not throw a stack trace.
     const clash = await new Promise((resolve) => {
       const child = spawn('node', [path.join(ROOT, 'bridge', 'server.mjs'), '--port', String(PORT)], {
