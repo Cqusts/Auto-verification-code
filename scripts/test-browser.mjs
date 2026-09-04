@@ -317,6 +317,7 @@ async function main() {
         picked = await hard.inputValue('#input3');
       }
       check('an unnamed field beside 获取验证码 is found', picked === '778899', `value=${JSON.stringify(picked)}`);
+
       check('the unlabelled field above it is left alone', (await hard.inputValue('#input2')) === '');
       check('the phone field is never filled', (await hard.inputValue('input[name="mobile"]')) === '');
 
@@ -365,6 +366,29 @@ async function main() {
       }
       check('the picked field is used after a reload', manual === '445566', `value=${JSON.stringify(manual)}`);
       await hard.close();
+    }
+
+    // ---- 4b2. an SPA field whose only clue is its placeholder ---------------
+    // "验证码" alone is ambiguous only while an image CAPTCHA is possible; with
+    // no image on the page the label can only mean the SMS kind.
+    {
+      const spa = await context.newPage();
+      await spa.goto(`http://127.0.0.1:${SITE_PORT}/spa.html`);
+      await spa.waitForTimeout(1200);
+      await fetch(`http://127.0.0.1:${BRIDGE_PORT}/sms?token=${TOKEN}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '【测试】您的验证码是 991133，5分钟内有效' }),
+      });
+      let spaValue = '';
+      for (let i = 0; i < 30 && !spaValue; i += 1) {
+        await spa.waitForTimeout(200);
+        spaValue = await spa.inputValue('input[placeholder="请输入验证码"]');
+      }
+      check('a 验证码 placeholder alone is enough', spaValue === '991133', `value=${JSON.stringify(spaValue)}`);
+      check('the phone field beside it stays empty',
+        (await spa.inputValue('input[placeholder="请输入手机号"]')) === '');
+      await spa.close();
     }
 
     // ---- 4c. the login form lives in an iframe -----------------------------

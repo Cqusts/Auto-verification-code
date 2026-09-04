@@ -192,6 +192,17 @@ export function classifyField(input) {
   if (image) {
     captcha += 70;
     reasons.push(`image:${image.kind}`);
+  } else if (ambiguous) {
+    // "验证码" is ambiguous only while an image CAPTCHA is still on the table.
+    // With no picture anywhere near the field, that reading is dead — a CAPTCHA
+    // box with no CAPTCHA in it is unfillable, and the code below discards it
+    // anyway — so the label resolves to the SMS kind by elimination.
+    //
+    // Without this, `<input placeholder="请输入验证码">` with no id, no name and
+    // no adjacent button scores 30 against a threshold of 55 and is dropped,
+    // even though its placeholder says in plain words what it is.
+    otp += 35;
+    reasons.push('code-label-without-image');
   }
   if (buttonDistance !== Infinity) {
     // Closer to the button beats further away, so the phone field above the

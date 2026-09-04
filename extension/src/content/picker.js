@@ -26,6 +26,20 @@ export function buildSelector(el) {
   const testId = el.getAttribute('data-testid') || el.getAttribute('data-test');
   if (testId) return `input[data-testid="${CSS.escape(testId)}"]`;
 
+  // Placeholders survive rebuilds; CSS-module class names like
+  // `h4hZ4fwxq_OT_aq_xew8` do not, and neither does a structural path once the
+  // framework renders the form slightly differently. Only use it when it picks
+  // out exactly one field.
+  const placeholder = el.getAttribute('placeholder');
+  if (placeholder) {
+    const selector = `input[placeholder="${CSS.escape(placeholder)}"]`;
+    try {
+      if (document.querySelectorAll(selector).length === 1) return selector;
+    } catch {
+      /* unusable as a selector; fall through */
+    }
+  }
+
   // Fall back to a short structural path, anchored at the nearest stable id.
   const parts = [];
   let node = el;
