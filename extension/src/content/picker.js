@@ -57,7 +57,7 @@ export function resolveSelector(selector) {
   return el;
 }
 
-function cleanup() {
+export function cancelPicking() {
   if (!active) return;
   document.removeEventListener('mouseover', active.onOver, true);
   document.removeEventListener('click', active.onClick, true);
@@ -67,51 +67,70 @@ function cleanup() {
   active = null;
 }
 
+function flashBanner(text, tone) {
+  const note = document.createElement('div');
+  note.className = `avc-pick-banner${tone ? ` avc-pick-banner--${tone}` : ''}`;
+  note.textContent = text;
+  (document.body || document.documentElement).appendChild(note);
+  setTimeout(() => note.remove(), 2600);
+}
+
 /**
- * Enters pick mode until the user clicks an input or presses Escape.
- * @returns {Promise<{selector:string, label:string}|{cancelled:true}>}
+ * Enters pick mode and returns immediately.
+ *
+ * Fire-and-forget rather than an awaited promise, because pick mode runs in
+ * every frame at once — the form may live in an iframe — and because the popup
+ * that started it closes the instant the user clicks the page, so there is
+ * nobody left to hand a return value to. The chosen field is pushed to the
+ * background, and the page itself confirms.
+ *
+ * @param {(result:{selector:string,label:string}) => void} onPicked
  */
-export function pickField() {
-  cleanup();
-  return new Promise((resolve) => {
-    const banner = document.createElement('div');
-    banner.className = 'avc-pick-banner';
-    banner.textContent = '点击页面上的验证码输入框（按 Esc 取消）';
-    (document.body || document.documentElement).appendChild(banner);
+export function startPicking(onPicked) {
+  cancelPicking();
 
-    const finish = (result) => {
-      cleanup();
-      resolve(result);
-    };
+  const banner = document.createElement('div');
+  banner.className = 'avc-pick-banner';
+  banner.textContent = '点击验证码输入框（按 Esc 取消）';
+  (document.body || document.documentElement).appendChild(banner);
 
-    const onOver = (event) => {
-      const el = event.target;
-      if (active.hovered === el) return;
-      active.hovered?.classList.remove(HILITE);
-      active.hovered = isFillableTextInput(el) ? el : null;
-      active.hovered?.classList.add(HILITE);
-    };
+  const onOver = (event) => {
+    const el = event.target;
+    if (!active || active.hovered === el) return;
+    active.hovered?.classList.remove(HILITE);
+    active.hovered = isFillableTextInput(el) ? el : null;
+    active.hovered?.classList.add(HILITE);
+  };
 
-    const onClick = (event) => {
-      const el = event.target;
-      if (!isFillableTextInput(el)) return;
-      // Never let the page act on this click.
+  const onClick = (event) => {
+    const el = event.target;
+    // Swallow every click while picking: the page must not react to it.
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!isFillableTextInput(el)) {
+      flashBanner('这不是可填写的输入框，请点验证码那一格', 'warn');
+      return;
+    }
+    const selector = buildSelector(el);
+    cancelPicking();
+    if (!selector) {
+      flashBanner('无法为这个元素生成稳定的定位方式', 'warn');
+      return;
+    }
+    flashBanner('已指定，下次验证码会填到这里', 'ok');
+    onPicked({ selector, label: el.getAttribute('name') || el.id || el.tagName.toLowerCase() });
+  };
+
+  const onKey = (event) => {
+    if (event.key === 'Escape') {
       event.preventDefault();
-      event.stopPropagation();
-      const selector = buildSelector(el);
-      finish(selector ? { selector, label: el.getAttribute('name') || el.id || el.tagName.toLowerCase() } : { cancelled: true });
-    };
+      cancelPicking();
+    }
+  };
 
-    const onKey = (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        finish({ cancelled: true });
-      }
-    };
-
-    active = { onOver, onClick, onKey, banner, hovered: null };
-    document.addEventListener('mouseover', onOver, true);
-    document.addEventListener('click', onClick, true);
-    document.addEventListener('keydown', onKey, true);
-  });
+  active = { onOver, onClick, onKey, banner, hovered: null };
+  document.addEventListener('mouseover', onOver, true);
+  document.addEventListener('click', onClick, true);
+  document.addEventListener('keydown', onKey, true);
 }

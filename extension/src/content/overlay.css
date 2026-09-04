@@ -114,3 +114,6 @@
   outline-offset: 2px !important;
   cursor: crosshair !important;
 }
+
+.avc-pick-banner--ok { background: #2f855a; box-shadow: 0 6px 20px rgba(47, 133, 90, 0.35); }
+.avc-pick-banner--warn { background: #c05621; box-shadow: 0 6px 20px rgba(192, 86, 33, 0.35); }

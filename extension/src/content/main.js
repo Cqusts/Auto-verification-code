@@ -6,7 +6,7 @@ import { scanPage } from './field-detect.js';
 import { fillField, submitFor } from './fill.js';
 import { Chip, flashField } from './overlay.js';
 import { CaptchaSolver } from './captcha.js';
-import { pickField } from './picker.js';
+import { startPicking, cancelPicking } from './picker.js';
 
 const chip = new Chip();
 
@@ -257,11 +257,24 @@ registerHandlers({
 
   [MSG.READ_CLIPBOARD]: async () => tryClipboard({ manual: true }),
 
-  [MSG.PICK_FIELD]: async () => {
-    const result = await pickField();
-    if (result.cancelled) return { cancelled: true };
-    await scan();
-    return { ...result, host: location.hostname.toLowerCase() };
+  [MSG.PICK_START]: async () => {
+    startPicking(async ({ selector, label }) => {
+      await sendToRuntime(MSG.PICK_RESULT, {
+        selector,
+        label,
+        // Each frame reports its own host, so a field inside an iframe is
+        // remembered against the iframe's origin — which is where the content
+        // script that has to find it again will look.
+        host: location.hostname.toLowerCase(),
+      });
+      await scan();
+    });
+    return { started: true };
+  },
+
+  [MSG.PICK_CANCEL]: async () => {
+    cancelPicking();
+    return { ok: true };
   },
 
   [MSG.PING]: async () => ({ pong: true, otp: Boolean(state.otp), captchas: state.captchas.length }),

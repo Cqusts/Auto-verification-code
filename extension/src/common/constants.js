@@ -14,7 +14,8 @@ export const MSG = {
   TRIGGER_SCAN: 'bg:trigger-scan',
   TRIGGER_CAPTCHA: 'bg:trigger-captcha',
   FILL_TEXT: 'bg:fill-text',
-  PICK_FIELD: 'bg:pick-field',
+  PICK_START: 'bg:pick-start',
+  PICK_CANCEL: 'bg:pick-cancel',
   PING: 'bg:ping',
 
   // offscreen <-> background
@@ -33,6 +34,7 @@ export const MSG = {
   FILL_ACTIVE_TAB: 'ui:fill-active-tab',
   CLIPBOARD_ACTIVE_TAB: 'ui:clipboard-active-tab',
   PICK_ACTIVE_TAB: 'ui:pick-active-tab',
+  PICK_RESULT: 'content:pick-result',
   CLEAR_FIELD_OVERRIDE: 'ui:clear-field-override',
   TEST_BRIDGE: 'ui:test-bridge',
   TEST_OCR: 'ui:test-ocr',

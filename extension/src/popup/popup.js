@@ -231,20 +231,14 @@ $('btn-manual').addEventListener('click', (event) =>
 
 $('btn-pick').addEventListener('click', (event) =>
   withBusy(event.target, async () => {
-    setMessage('请在页面上点击验证码输入框（按 Esc 取消）。');
-    // The popup closes as soon as the page takes focus, so the picking itself
-    // happens in the page; this call resolves once the user has clicked.
     const res = await sendToRuntime(MSG.PICK_ACTIVE_TAB);
     if (!res.ok) {
       setMessage(`指定失败：${explain(res.error)}`, 'err');
       return;
     }
-    if (res.data?.cancelled) {
-      setMessage('已取消。');
-      return;
-    }
-    setMessage(`已指定 ${res.data.selector}，下次验证码会填到这里。`, 'ok');
-    await render();
+    // The popup closes the moment the page takes focus, so the confirmation has
+    // to come from the page itself, not from here.
+    setMessage('取词模式已开启 —— 关掉这个弹窗，在页面上点击验证码输入框。', 'ok');
   }),
 );
 

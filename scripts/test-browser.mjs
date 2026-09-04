@@ -329,14 +329,22 @@ async function main() {
       // not receive its own runtime messages.
       await hard.bringToFront();
       await hard.waitForTimeout(200);
-      const pickPromise = options.evaluate(() =>
+      const started = await options.evaluate(() =>
         chrome.runtime.sendMessage({ type: 'ui:pick-active-tab', payload: {} }),
       );
-      await hard.waitForTimeout(600);
+      check('pick mode starts without waiting for the click', started?.data?.started === true, JSON.stringify(started));
+      await hard.waitForTimeout(500);
       check('pick mode shows a banner', await hard.locator('.avc-pick-banner').isVisible().catch(() => false));
+
+      // Clicking something that cannot be filled must say so, not sit silent.
+      await hard.click('legend');
+      await hard.waitForTimeout(300);
+      check('clicking a non-input explains itself',
+        (await hard.locator('.avc-pick-banner--warn').count()) > 0);
+
       await hard.click('#mystery');
-      const pickResult = await pickPromise;
-      check('picking stores a selector', pickResult?.data?.selector === '#mystery', JSON.stringify(pickResult));
+      await hard.waitForTimeout(600);
+      check('the page confirms the pick', (await hard.locator('.avc-pick-banner--ok').count()) > 0);
       check('the override is remembered for this host',
         (await options.evaluate(async () => {
           const got = await chrome.storage.local.get('settings');
@@ -357,6 +365,51 @@ async function main() {
       }
       check('the picked field is used after a reload', manual === '445566', `value=${JSON.stringify(manual)}`);
       await hard.close();
+    }
+
+    // ---- 4c. the login form lives in an iframe -----------------------------
+    // The shape used by plenty of SPA/SSO login pages. Pick mode has to run in
+    // every frame, or the banner shows on top and clicking does nothing.
+    {
+      await options.evaluate(async () => {
+        const got = await chrome.storage.local.get('settings');
+        const settings = got.settings || {};
+        settings.sites = { ...(settings.sites || {}), fieldOverrides: {} };
+        await chrome.storage.local.set({ settings });
+      });
+
+      const framed = await context.newPage();
+      await framed.goto(`http://127.0.0.1:${SITE_PORT}/framed.html`);
+      await framed.waitForTimeout(1200);
+      await framed.bringToFront();
+      await framed.waitForTimeout(200);
+
+      await options.evaluate(() => chrome.runtime.sendMessage({ type: 'ui:pick-active-tab', payload: {} }));
+      await framed.waitForTimeout(600);
+
+      const frame = framed.frames().find((f) => f.url().includes('inner.html'));
+      check('pick mode reaches the iframe', Boolean(frame) && (await frame.locator('.avc-pick-banner').count()) > 0);
+
+      await frame.click('#innerCode');
+      await framed.waitForTimeout(700);
+      check('picking inside an iframe is stored',
+        (await options.evaluate(async () => {
+          const got = await chrome.storage.local.get('settings');
+          return got.settings?.sites?.fieldOverrides?.['127.0.0.1']?.otp;
+        })) === '#innerCode');
+
+      await fetch(`http://127.0.0.1:${BRIDGE_PORT}/sms?token=${TOKEN}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '【测试】您的验证码是 224466，5分钟内有效' }),
+      });
+      let inFrame = '';
+      for (let i = 0; i < 30 && !inFrame; i += 1) {
+        await framed.waitForTimeout(200);
+        inFrame = await frame.inputValue('#innerCode');
+      }
+      check('a code fills a picked field inside an iframe', inFrame === '224466', `value=${JSON.stringify(inFrame)}`);
+      await framed.close();
     }
 
     // ---- 5. programmatic injection recovers a tab with no content script ---

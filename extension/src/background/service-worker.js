@@ -411,17 +411,28 @@ registerHandlers({
 
   [MSG.PICK_ACTIVE_TAB]: async () => {
     const active = await activeTabOrThrow();
-    const res = await sendToTabOrInject(active.id, MSG.PICK_FIELD, {}, { frameId: 0 });
+    // No frameId: the login form is often inside an iframe, so every frame
+    // enters pick mode and whichever one the user clicks in reports back.
+    const res = await sendToTabOrInject(active.id, MSG.PICK_START, {});
     if (!res.ok) throw new Error(res.error);
-    const data = res.data;
-    if (!data || data.cancelled) return { cancelled: true };
-    // Saved per host so one site's quirk never affects another.
+    return { started: true };
+  },
+
+  [MSG.PICK_RESULT]: async (payload, sender) => {
+    if (!payload.selector || !payload.host) return { ok: false };
     const settings = await getSettings({ fresh: true });
     const overrides = { ...(settings.sites.fieldOverrides || {}) };
-    overrides[data.host] = { ...(overrides[data.host] || {}), otp: data.selector };
+    // Saved per host so one site's quirk never affects another.
+    overrides[payload.host] = { ...(overrides[payload.host] || {}), otp: payload.selector };
     await updateSettings({ sites: { fieldOverrides: overrides } });
-    log.info('bg', `manual field override for ${data.host}: ${data.selector}`);
-    return data;
+    log.info('bg', `manual field override for ${payload.host}: ${payload.selector}`);
+    // Take the other frames out of pick mode.
+    if (sender?.tab?.id != null) sendToTab(sender.tab.id, MSG.PICK_CANCEL, {}).catch(() => {});
+
+    // The code may already be waiting; deliver it now instead of after the next SMS.
+    const entry = await codeStore.latest({ maxAgeMs: settings.otp.ttlSeconds * 1000 });
+    if (entry && settings.otp.autoFill) await deliverCode(entry);
+    return { ok: true };
   },
 
   [MSG.CLEAR_FIELD_OVERRIDE]: async (payload) => {
