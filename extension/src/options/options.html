@@ -60,6 +60,26 @@
         </div>
 
         <div class="card">
+          <h2>自动填写手机号</h2>
+          <label class="check"><input type="checkbox" data-path="phone.enabled" /><span>启用</span></label>
+          <label class="check"><input type="checkbox" data-path="phone.skipNonEmpty" /><span>输入框已有内容时不覆盖</span></label>
+          <label class="check"><input type="checkbox" data-path="phone.fillOnce" /><span>每个输入框只填一次（手动清空后不再自动填回）</span></label>
+          <label class="field field--wide">
+            <span>你的手机号（留空则此功能完全不生效）</span>
+            <input type="text" inputmode="numeric" autocomplete="off" data-path="phone.number" placeholder="例如 13800138000" />
+          </label>
+          <p class="hint">
+            检测到「手机号 / 电话 / mobile / <code>type=&quot;tel&quot;</code>」这类输入框时自动填入。
+            验证码框、密码框、身份证、银行卡等一律排除。
+          </p>
+          <p class="hint">
+            <strong>这个号码会明文保存在浏览器的扩展存储里</strong>（<code>chrome.storage.local</code>），
+            和验证码不同 —— 验证码只在内存里，关掉浏览器就没了，而手机号需要长期保留才有意义。
+            不想留就把上面的输入框清空。
+          </p>
+        </div>
+
+        <div class="card">
           <h2>界面提示</h2>
           <label class="check"><input type="checkbox" data-path="ui.showBadge" /><span>在输入框旁显示状态标签</span></label>
           <label class="check"><input type="checkbox" data-path="ui.notifyOnCode" /><span>收到验证码时发送系统通知</span></label>

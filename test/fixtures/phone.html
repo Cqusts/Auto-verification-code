@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><title>AVC phone page</title>
+    <style>
+      body { font: 14px/1.6 sans-serif; padding: 24px; max-width: 460px; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+      input { padding: 6px 8px; font-size: 14px; width: 190px; }
+    </style>
+  </head>
+  <body>
+    <h1>手机号自动填写</h1>
+
+    <div class="row"><input placeholder="请输入手机号" type="text" id="phone1" /></div>
+    <div class="row"><input name="mobile" type="text" id="phone2" /></div>
+    <div class="row"><input type="tel" id="phone3" /></div>
+
+    <!-- None of these may ever receive a phone number. -->
+    <div class="row"><input placeholder="请输入手机验证码" type="text" id="notCode" /></div>
+    <div class="row"><input placeholder="请输入密码" type="text" name="password" id="notPwd" /></div>
+    <div class="row"><input placeholder="请输入邮箱" type="text" name="email" id="notMail" /></div>
+    <div class="row"><input placeholder="搜索" type="text" name="search" id="notSearch" /></div>
+    <div class="row"><input placeholder="身份证号" type="text" name="idcard" id="notId" /></div>
+
+    <!-- Already filled: must be left exactly as it is. -->
+    <div class="row"><input placeholder="手机号" type="text" id="prefilled" value="19900000000" /></div>
+  </body>
+</html>

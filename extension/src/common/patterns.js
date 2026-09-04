@@ -64,6 +64,23 @@ export const FIELD_BLOCK_RE = /(password|passwd|pwd|密码|口令密码|card|cvv
  * On a typical login form the phone/account input is one row above the code
  * input, well within any proximity radius, so it has to be excluded by name.
  */
+/**
+ * A phone-number input, narrowly.
+ *
+ * Deliberately narrower than NOT_OTP_FIELD_RE: that one also covers accounts,
+ * usernames and email so they never win the code-field contest, but a phone
+ * number must not be typed into any of those.
+ *
+ * `手机` on its own is here, which also appears in `手机验证码` — the caller
+ * excludes code fields first, so the order of those checks is load-bearing.
+ */
+export const PHONE_FIELD_RE =
+  /(phone|mobile|\btel\b|telephone|cell[-_ ]?phone|msisdn|手机号|手机號|手机|电话|電話|联系方式|聯繫方式)/i;
+
+/** Never put a phone number here, whatever else the field looks like. */
+export const PHONE_BLOCK_RE =
+  /(password|passwd|pwd|密码|验证码|校验码|captcha|code\b|search|搜索|查询|身份证|idcard|银行卡|bank|card|金额|amount|地址|address|邮编|zip)/i;
+
 export const NOT_OTP_FIELD_RE =
   /(phone|mobile|tel\b|account|username|user[-_ ]?name|login[-_ ]?name|email|mail\b|nickname|手机号|手机号码|电话|账号|帐号|用户名|昵称|邮箱|邮件)/i;
 

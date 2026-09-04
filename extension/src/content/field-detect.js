@@ -4,6 +4,8 @@ import {
   CODE_AMBIGUOUS_RE,
   FIELD_BLOCK_RE,
   NOT_OTP_FIELD_RE,
+  PHONE_FIELD_RE,
+  PHONE_BLOCK_RE,
   SEND_CODE_BUTTON_RE,
   CAPTCHA_IMG_RE,
   CAPTCHA_IMG_SIZE,
@@ -230,6 +232,26 @@ export function classifyField(input) {
   }
   if (otp >= OTP_THRESHOLD) return { kind: 'otp', score: otp, reasons };
   return null;
+}
+
+/**
+ * Inputs that should receive the user's own phone number.
+ *
+ * Order matters: code fields are excluded *before* the phone test, because
+ * `手机验证码` matches the phone pattern too and is emphatically not a phone box.
+ */
+export function findPhoneFields() {
+  return collectInputs().filter((input) => {
+    const hay = describeField(input);
+    if (!hay) return false;
+    if (FIELD_BLOCK_RE.test(hay) || PHONE_BLOCK_RE.test(hay)) return false;
+    if (OTP_STRONG_RE.test(hay) || CAPTCHA_STRONG_RE.test(hay) || CODE_AMBIGUOUS_RE.test(hay)) return false;
+
+    const type = (input.getAttribute('type') || 'text').toLowerCase();
+    // type="tel" is a declaration; nothing else needs to agree.
+    if (type === 'tel') return true;
+    return PHONE_FIELD_RE.test(hay);
+  });
 }
 
 /**

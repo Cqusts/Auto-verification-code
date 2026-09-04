@@ -2,8 +2,8 @@ import { MSG, SOURCE } from '../common/constants.js';
 import { sendToRuntime, registerHandlers } from '../common/messaging.js';
 import { debounce, RateLimiter } from '../common/util.js';
 import { extractCode } from '../common/code-extract.js';
-import { scanPage } from './field-detect.js';
-import { fillField, submitFor } from './fill.js';
+import { scanPage, findPhoneFields } from './field-detect.js';
+import { fillField, submitFor, typeInto } from './fill.js';
 import { Chip, flashField } from './overlay.js';
 import { CaptchaSolver } from './captcha.js';
 import { startPicking, cancelPicking } from './picker.js';
@@ -26,6 +26,9 @@ const state = {
    */
   openedAt: Date.now(),
 };
+
+/** Fields already given the phone number, so clearing one by hand sticks. */
+const phoneFilled = new WeakSet();
 
 /** Stops a refreshing CAPTCHA from turning into a solve loop. */
 const autoSolveLimiter = new RateLimiter(8, 60_000);
@@ -79,6 +82,37 @@ async function announceOtpField() {
   }
   if (state.settings?.otp?.autoFill && state.settings?.ui?.showBadge) {
     chip.show({ anchor: state.otp.input, state: 'waiting', text: '等待短信验证码…', autoHideMs: 6000 });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// phone number
+// ---------------------------------------------------------------------------
+
+/**
+ * Types the user's own phone number into phone fields.
+ *
+ * Inert until a number is saved in the options, and never overwrites something
+ * already there — this writes a piece of personal data into a page, so it only
+ * ever acts on an empty field the user asked it to act on.
+ */
+async function fillPhoneFields() {
+  const cfg = state.settings?.phone;
+  const number = String(cfg?.number || '').trim();
+  if (!cfg?.enabled || !number) return;
+
+  for (const input of findPhoneFields()) {
+    if (cfg.fillOnce && phoneFilled.has(input)) continue;
+    if (cfg.skipNonEmpty && input.value?.trim()) continue;
+    const maxLength = Number(input.getAttribute('maxlength')) || 0;
+    if (maxLength > 0 && number.length > maxLength) continue;
+
+    phoneFilled.add(input);
+    const ok = await typeInto(input, number);
+    if (ok) {
+      if (state.settings.otp?.highlight) flashField(input);
+      chip.show({ anchor: input, state: 'done', text: '已填入手机号', autoHideMs: 2500 });
+    }
   }
 }
 
@@ -154,6 +188,8 @@ async function scan() {
       state.otp = null;
       sendToRuntime(MSG.OTP_FIELD_LOST, {});
     }
+
+    await fillPhoneFields();
 
     // --- CAPTCHA fields
     state.captchas = captchas;

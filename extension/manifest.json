@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Verification Code · 自动验证码",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "自动接收短信验证码并填写，本地离线识别图片验证码。Auto-fills SMS one-time codes and locally OCRs image CAPTCHAs.",
   "minimum_chrome_version": "116",
   "icons": {

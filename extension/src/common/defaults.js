@@ -31,6 +31,17 @@ export const DEFAULT_SETTINGS = {
     highlight: true,
   },
 
+  /** Auto-fills your own phone number into phone fields. Inert until you set one. */
+  phone: {
+    enabled: true,
+    /** Empty means the feature does nothing at all. */
+    number: '',
+    /** Never replace something already typed in. */
+    skipNonEmpty: true,
+    /** Fill each field at most once, so clearing it by hand actually sticks. */
+    fillOnce: true,
+  },
+
   captcha: {
     enabled: true,
     /** local (bundled Tesseract) | http (self-hosted OCR) | off */

@@ -391,6 +391,57 @@ async function main() {
       await spa.close();
     }
 
+    // ---- 4b3. the user's own phone number -----------------------------------
+    // Writing personal data into a page: it must land only where asked, and
+    // nowhere near a password, an ID number or the code box.
+    {
+      await options.evaluate(async () => {
+        const got = await chrome.storage.local.get('settings');
+        const settings = got.settings || {};
+        settings.phone = { enabled: true, number: '13800138000', skipNonEmpty: true, fillOnce: true };
+        await chrome.storage.local.set({ settings });
+      });
+
+      const phone = await context.newPage();
+      await phone.goto(`http://127.0.0.1:${SITE_PORT}/phone.html`);
+      await phone.waitForTimeout(1500);
+
+      for (const id of ['#phone1', '#phone2', '#phone3']) {
+        check(`phone number fills ${id}`, (await phone.inputValue(id)) === '13800138000', await phone.inputValue(id));
+      }
+      for (const [id, why] of [
+        ['#notCode', 'the SMS code box'],
+        ['#notPwd', 'a password field'],
+        ['#notMail', 'an email field'],
+        ['#notSearch', 'a search box'],
+        ['#notId', 'an ID-number field'],
+      ]) {
+        check(`phone number never touches ${why}`, (await phone.inputValue(id)) === '', await phone.inputValue(id));
+      }
+      check('an already-filled phone field is left alone',
+        (await phone.inputValue('#prefilled')) === '19900000000');
+
+      // Clearing by hand must stick rather than being re-filled on the next scan.
+      await phone.fill('#phone1', '');
+      await phone.evaluate(() => document.body.appendChild(document.createElement('span')));
+      await phone.waitForTimeout(1200);
+      check('a hand-cleared field is not re-filled', (await phone.inputValue('#phone1')) === '');
+
+      // And with no number saved the feature is completely inert.
+      await options.evaluate(async () => {
+        const got = await chrome.storage.local.get('settings');
+        const settings = got.settings || {};
+        settings.phone = { ...settings.phone, number: '' };
+        await chrome.storage.local.set({ settings });
+      });
+      const phone2 = await context.newPage();
+      await phone2.goto(`http://127.0.0.1:${SITE_PORT}/phone.html`);
+      await phone2.waitForTimeout(1500);
+      check('no saved number means nothing is filled', (await phone2.inputValue('#phone1')) === '');
+      await phone2.close();
+      await phone.close();
+    }
+
     // ---- 4c. the login form lives in an iframe -----------------------------
     // The shape used by plenty of SPA/SSO login pages. Pick mode has to run in
     // every frame, or the banner shows on top and clicking does nothing.

@@ -1,6 +1,6 @@
 {
   "name": "auto-verification-code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Microsoft Edge / Chromium extension that auto-fills SMS one-time codes and locally OCRs image CAPTCHAs.",
   "private": true,
   "type": "module",

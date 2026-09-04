@@ -523,6 +523,7 @@ function publicSettings(settings) {
       solveOnDetect: settings.captcha.solveOnDetect,
       solveOnImageChange: settings.captcha.solveOnImageChange,
     },
+    phone: settings.phone,
     sources: { clipboard: settings.sources.clipboard },
     sites: { fieldOverrides: settings.sites.fieldOverrides || {} },
     ui: settings.ui,
