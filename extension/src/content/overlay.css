@@ -92,3 +92,25 @@
   }
   .avc-chip__btn:hover { background: #39404f; }
 }
+
+.avc-pick-banner {
+  position: fixed;
+  z-index: 2147483601;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font: 600 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", Roboto, sans-serif;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+  pointer-events: none;
+}
+
+.avc-pick-hover {
+  outline: 2px dashed #2563eb !important;
+  outline-offset: 2px !important;
+  cursor: crosshair !important;
+}

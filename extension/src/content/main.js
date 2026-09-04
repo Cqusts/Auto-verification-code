@@ -6,6 +6,7 @@ import { scanPage } from './field-detect.js';
 import { fillField, submitFor } from './fill.js';
 import { Chip, flashField } from './overlay.js';
 import { CaptchaSolver } from './captcha.js';
+import { pickField } from './picker.js';
 
 const chip = new Chip();
 
@@ -13,9 +14,17 @@ const state = {
   settings: null,
   allowed: false,
   otp: null,
-  otpSeenAt: 0,
   captchas: [],
   lastClipboard: '',
+  /**
+   * When this page was opened — not when the field was spotted.
+   *
+   * Freshness is meant to stop a code from a *previous* session being replayed
+   * into a new form. Keying it to detection time punished slow detection
+   * instead: a code that arrived while the page was still being scanned looked
+   * stale and was refused.
+   */
+  openedAt: Date.now(),
 };
 
 /** Stops a refreshing CAPTCHA from turning into a solve loop. */
@@ -62,7 +71,7 @@ async function fillOtp({ code, codeId, source }) {
 async function announceOtpField() {
   const res = await sendToRuntime(MSG.OTP_FIELD_FOUND, {
     kind: 'otp',
-    fieldSeenAt: state.otpSeenAt,
+    pageOpenedAt: state.openedAt,
   });
   if (res.ok && res.data?.code) {
     await fillOtp(res.data);
@@ -128,14 +137,15 @@ async function scan() {
   if (scanning || !state.allowed || !state.settings?.enabled) return;
   scanning = true;
   try {
-    const { otp, captchas } = scanPage();
+    const host = location.hostname.toLowerCase();
+    const otpOverride = state.settings?.sites?.fieldOverrides?.[host]?.otp || '';
+    const { otp, captchas } = scanPage({ otpOverride });
 
     // --- OTP field bookkeeping
     const previous = state.otp?.input;
     if (otp?.input) {
       if (previous !== otp.input) {
         state.otp = otp;
-        state.otpSeenAt = Date.now();
         if (state.settings.otp.enabled) await announceOtpField();
       } else {
         state.otp = otp;
@@ -246,6 +256,13 @@ registerHandlers({
   [MSG.FILL_TEXT]: async (payload) => fillOtp({ code: payload.code, codeId: payload.codeId, source: 'manual' }),
 
   [MSG.READ_CLIPBOARD]: async () => tryClipboard({ manual: true }),
+
+  [MSG.PICK_FIELD]: async () => {
+    const result = await pickField();
+    if (result.cancelled) return { cancelled: true };
+    await scan();
+    return { ...result, host: location.hostname.toLowerCase() };
+  },
 
   [MSG.PING]: async () => ({ pong: true, otp: Boolean(state.otp), captchas: state.captchas.length }),
 });

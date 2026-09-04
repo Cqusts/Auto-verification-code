@@ -114,6 +114,11 @@ export const DEFAULT_SETTINGS = {
     mode: 'all',
     allowlist: [],
     blocklist: [],
+    /**
+     * Manually picked fields, keyed by hostname: { "example.com": { otp: "#code" } }.
+     * The escape hatch for sites whose markup gives the detector nothing to go on.
+     */
+    fieldOverrides: {},
   },
 
   ui: {

@@ -59,6 +59,14 @@ export const SUBMIT_BUTTON_RE =
 /** Elements that must never be auto-filled even if they look like code fields. */
 export const FIELD_BLOCK_RE = /(password|passwd|pwd|密码|口令密码|card|cvv|cvc|bank|身份证|idcard)/i;
 
+/**
+ * Fields that sit next to a "get code" button but are not the code box.
+ * On a typical login form the phone/account input is one row above the code
+ * input, well within any proximity radius, so it has to be excluded by name.
+ */
+export const NOT_OTP_FIELD_RE =
+  /(phone|mobile|tel\b|account|username|user[-_ ]?name|login[-_ ]?name|email|mail\b|nickname|手机号|手机号码|电话|账号|帐号|用户名|昵称|邮箱|邮件)/i;
+
 /** Anchors whose alt/title/class marks them as the CAPTCHA image. */
 export const CAPTCHA_IMG_RE =
   /(captcha|kaptcha|verif|vcode|yzm|checkcode|seccode|randcode|validate|验证码|验证图|图形码)/i;

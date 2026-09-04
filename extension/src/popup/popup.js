@@ -66,6 +66,8 @@ async function render() {
   $('btn-site-toggle').textContent = blocked ? '在此站点启用' : '在此站点停用';
   $('btn-site-toggle').disabled = !host;
 
+  renderPickState(activeTab);
+
   const bridge = bridgeLabel(bridgeStatus, settings);
   $('bridge-state').textContent = bridge.text;
   $('dot-bridge').className = `dot${bridge.dot ? ` dot--${bridge.dot}` : ''}`;
@@ -82,6 +84,37 @@ async function render() {
   }
 
   renderPageState(activeTab, settings);
+}
+
+/** Shows whether this host has a manually picked field, and lets it be undone. */
+function renderPickState(activeTab) {
+  const row = $('pick-row');
+  const hint = $('pick-hint');
+  row.hidden = !activeTab?.injectable;
+  if (row.hidden) return;
+
+  const selector = activeTab.fieldOverride;
+  if (!selector) {
+    hint.hidden = true;
+    return;
+  }
+  hint.hidden = false;
+  hint.innerHTML = '';
+  hint.append('已指定：');
+  const code = document.createElement('code');
+  code.textContent = selector;
+  code.title = selector;
+  hint.append(code);
+  const clear = document.createElement('button');
+  clear.className = 'pick__clear';
+  clear.type = 'button';
+  clear.textContent = '清除';
+  clear.addEventListener('click', async () => {
+    await sendToRuntime(MSG.CLEAR_FIELD_OVERRIDE, { host: activeTab.host });
+    setMessage('已清除该站点的手动指定。', 'ok');
+    await render();
+  });
+  hint.append(clear);
 }
 
 function renderPageState(activeTab, settings) {
@@ -192,6 +225,25 @@ $('btn-manual').addEventListener('click', (event) =>
     else if (data.stored) setMessage('已解析。页面上暂无可填写的输入框，可点上方「填入当前页面」。', '');
     else setMessage(`未识别出验证码（${explain(data.reason)}）`, 'err');
     $('manual').value = '';
+    await render();
+  }),
+);
+
+$('btn-pick').addEventListener('click', (event) =>
+  withBusy(event.target, async () => {
+    setMessage('请在页面上点击验证码输入框（按 Esc 取消）。');
+    // The popup closes as soon as the page takes focus, so the picking itself
+    // happens in the page; this call resolves once the user has clicked.
+    const res = await sendToRuntime(MSG.PICK_ACTIVE_TAB);
+    if (!res.ok) {
+      setMessage(`指定失败：${explain(res.error)}`, 'err');
+      return;
+    }
+    if (res.data?.cancelled) {
+      setMessage('已取消。');
+      return;
+    }
+    setMessage(`已指定 ${res.data.selector}，下次验证码会填到这里。`, 'ok');
     await render();
   }),
 );

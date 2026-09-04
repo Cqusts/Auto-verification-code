@@ -299,6 +299,66 @@ async function main() {
     check('split-box OTP widget filled', boxes === '135790', `value=${JSON.stringify(boxes)}`);
 
     if (errors.length) console.log('  (captured page events)\n' + errors.map((e) => `    - ${e}`).join('\n'));
+    // ---- 4b. recall on pages whose markup names nothing --------------------
+    {
+      const hard = await context.newPage();
+      await hard.goto(`http://127.0.0.1:${SITE_PORT}/hard.html`);
+      await hard.waitForTimeout(1200);
+
+      await fetch(`http://127.0.0.1:${BRIDGE_PORT}/sms?token=${TOKEN}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '【测试】您的验证码是 778899，5分钟内有效' }),
+      });
+
+      let picked = '';
+      for (let i = 0; i < 30 && !picked; i += 1) {
+        await hard.waitForTimeout(200);
+        picked = await hard.inputValue('#input3');
+      }
+      check('an unnamed field beside 获取验证码 is found', picked === '778899', `value=${JSON.stringify(picked)}`);
+      check('the unlabelled field above it is left alone', (await hard.inputValue('#input2')) === '');
+      check('the phone field is never filled', (await hard.inputValue('input[name="mobile"]')) === '');
+
+      // Section C has no signal at all; only a manual pick can reach it.
+      const before = await hard.inputValue('#mystery');
+      check('a field with no signal at all is not guessed', before === '');
+
+      // Simulate what the popup does: enter pick mode, then click the field.
+      // The request has to come from an extension page — a service worker does
+      // not receive its own runtime messages.
+      await hard.bringToFront();
+      await hard.waitForTimeout(200);
+      const pickPromise = options.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'ui:pick-active-tab', payload: {} }),
+      );
+      await hard.waitForTimeout(600);
+      check('pick mode shows a banner', await hard.locator('.avc-pick-banner').isVisible().catch(() => false));
+      await hard.click('#mystery');
+      const pickResult = await pickPromise;
+      check('picking stores a selector', pickResult?.data?.selector === '#mystery', JSON.stringify(pickResult));
+      check('the override is remembered for this host',
+        (await options.evaluate(async () => {
+          const got = await chrome.storage.local.get('settings');
+          return got.settings?.sites?.fieldOverrides?.['127.0.0.1']?.otp;
+        })) === '#mystery');
+
+      await hard.reload();
+      await hard.waitForTimeout(1200);
+      await fetch(`http://127.0.0.1:${BRIDGE_PORT}/sms?token=${TOKEN}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: '【测试】您的验证码是 445566，5分钟内有效' }),
+      });
+      let manual = '';
+      for (let i = 0; i < 30 && !manual; i += 1) {
+        await hard.waitForTimeout(200);
+        manual = await hard.inputValue('#mystery');
+      }
+      check('the picked field is used after a reload', manual === '445566', `value=${JSON.stringify(manual)}`);
+      await hard.close();
+    }
+
     // ---- 5. programmatic injection recovers a tab with no content script ---
     const injected = await worker.evaluate(async (site) => {
       const [tab] = await chrome.tabs.query({ url: `${site}/*` });

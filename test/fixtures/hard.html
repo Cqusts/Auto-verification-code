@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><title>AVC hard page</title>
+    <style>
+      body { font: 14px/1.6 sans-serif; padding: 24px; max-width: 560px; }
+      fieldset { margin-bottom: 24px; padding: 14px 16px; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+      .row input { padding: 6px 8px; font-size: 14px; }
+      .narrow { width: 120px; }
+    </style>
+  </head>
+  <body>
+    <h1>难识别的页面</h1>
+
+    <!-- Nothing names this field: no label, no placeholder, no useful id.
+         Only the adjacent "获取验证码" button gives it away. -->
+    <fieldset>
+      <legend>A. 无任何命名线索</legend>
+      <div class="row">
+        <input type="text" id="input2" class="narrow" />
+      </div>
+      <div class="row">
+        <input type="text" id="input3" class="narrow" />
+        <button type="button" id="send">获取验证码</button>
+      </div>
+    </fieldset>
+
+    <!-- The phone field sits right next to the same button and must not win. -->
+    <fieldset>
+      <legend>B. 手机号与验证码同在按钮附近</legend>
+      <div class="row">
+        <input type="text" name="mobile" placeholder="请输入手机号" />
+      </div>
+      <div class="row">
+        <input type="text" name="f7" class="narrow" maxlength="6" />
+        <button type="button">获取验证码</button>
+      </div>
+    </fieldset>
+
+    <!-- Nothing at all: no name, no button. Only a manual pick can find it. -->
+    <fieldset>
+      <legend>C. 完全无线索（只能手动指定）</legend>
+      <div class="row"><input type="text" id="mystery" class="narrow" /></div>
+    </fieldset>
+  </body>
+</html>

@@ -67,6 +67,37 @@ body {
 .btn--ghost { background: transparent; color: var(--muted); }
 .btn--block { width: 100%; flex: none; margin-top: 8px; }
 
+.pick { margin-top: 8px; }
+.pick__hint {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pick__hint code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+.pick__clear {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 0;
+  flex: none;
+}
+.pick__clear:hover { text-decoration: underline; }
+
 .field { display: block; }
 .field__label { display: block; color: var(--muted); margin-bottom: 5px; font-size: 12px; }
 textarea {

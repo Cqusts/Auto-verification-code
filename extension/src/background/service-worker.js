@@ -1,5 +1,5 @@
 import { MSG, LIMITS, SOURCE, OCR_PROVIDER, CODE_TTL_MS } from '../common/constants.js';
-import { getSettings, onSettingsChanged } from '../common/settings.js';
+import { getSettings, onSettingsChanged, updateSettings } from '../common/settings.js';
 import { registerHandlers, sendToTab } from '../common/messaging.js';
 import { log, setDebug, getLogs, clearLogs, hydrateLogs } from '../common/logger.js';
 import { extractCode, looksLikeVerificationSms } from '../common/code-extract.js';
@@ -282,7 +282,7 @@ registerHandlers({
     if (!settings.otp.autoFill) return { code: null };
     const entry = await codeStore.latest({ maxAgeMs: settings.otp.ttlSeconds * 1000 });
     if (!entry) return { code: null };
-    if (settings.otp.requireFreshCode && payload.fieldSeenAt && entry.receivedAt < payload.fieldSeenAt) {
+    if (settings.otp.requireFreshCode && payload.pageOpenedAt && entry.receivedAt < payload.pageOpenedAt) {
       return { code: null };
     }
     return { code: entry.code, codeId: entry.id, source: entry.source, receivedAt: entry.receivedAt };
@@ -364,6 +364,7 @@ registerHandlers({
             // Fields living in sub-frames are known here even when the top frame has none.
             registeredFields: fields.length,
             page,
+            fieldOverride: (settings.sites.fieldOverrides || {})[host]?.otp || '',
           }
         : null,
     };
@@ -406,6 +407,29 @@ registerHandlers({
     if (res.data?.filled) await codeStore.markConsumed(entry.id, { tabId: active.id });
     await refreshBadge();
     return res.data;
+  },
+
+  [MSG.PICK_ACTIVE_TAB]: async () => {
+    const active = await activeTabOrThrow();
+    const res = await sendToTabOrInject(active.id, MSG.PICK_FIELD, {}, { frameId: 0 });
+    if (!res.ok) throw new Error(res.error);
+    const data = res.data;
+    if (!data || data.cancelled) return { cancelled: true };
+    // Saved per host so one site's quirk never affects another.
+    const settings = await getSettings({ fresh: true });
+    const overrides = { ...(settings.sites.fieldOverrides || {}) };
+    overrides[data.host] = { ...(overrides[data.host] || {}), otp: data.selector };
+    await updateSettings({ sites: { fieldOverrides: overrides } });
+    log.info('bg', `manual field override for ${data.host}: ${data.selector}`);
+    return data;
+  },
+
+  [MSG.CLEAR_FIELD_OVERRIDE]: async (payload) => {
+    const settings = await getSettings({ fresh: true });
+    const overrides = { ...(settings.sites.fieldOverrides || {}) };
+    delete overrides[payload.host];
+    await updateSettings({ sites: { fieldOverrides: overrides } });
+    return { ok: true };
   },
 
   [MSG.CLIPBOARD_ACTIVE_TAB]: async () => {
@@ -489,6 +513,7 @@ function publicSettings(settings) {
       solveOnImageChange: settings.captcha.solveOnImageChange,
     },
     sources: { clipboard: settings.sources.clipboard },
+    sites: { fieldOverrides: settings.sites.fieldOverrides || {} },
     ui: settings.ui,
     advanced: { debug: settings.advanced.debug },
   };

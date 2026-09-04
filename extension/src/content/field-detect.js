@@ -3,6 +3,7 @@ import {
   CAPTCHA_STRONG_RE,
   CODE_AMBIGUOUS_RE,
   FIELD_BLOCK_RE,
+  NOT_OTP_FIELD_RE,
   SEND_CODE_BUTTON_RE,
   CAPTCHA_IMG_RE,
   CAPTCHA_IMG_SIZE,
@@ -15,6 +16,7 @@ import {
   containerOf,
   textOf,
 } from './dom-utils.js';
+import { resolveSelector } from './picker.js';
 
 const OTP_THRESHOLD = 55;
 const CAPTCHA_THRESHOLD = 55;
@@ -35,20 +37,36 @@ function rectDistance(a, b) {
 }
 
 /**
- * Does a "get SMS code" button sit near this input?
+ * Distance to the nearest "get SMS code" button, or Infinity when there is none.
  * Proximity matters as much as the label: on a single-form page the button can be
  * hundreds of pixels away from an unrelated field.
  */
-function hasSendCodeButton(input) {
+function sendCodeButtonDistance(input) {
   const scope = containerOf(input, 4);
   const inputRect = input.getBoundingClientRect();
   const clickable = scope.querySelectorAll('button, a, span[role="button"], div[role="button"], input[type="button"]');
+  let best = Infinity;
   for (const el of clickable) {
     const label = textOf(el) || el.getAttribute?.('value') || '';
     if (!label || label.length > 24 || !SEND_CODE_BUTTON_RE.test(label)) continue;
-    if (rectDistance(inputRect, el.getBoundingClientRect()) <= 320) return true;
+    best = Math.min(best, rectDistance(inputRect, el.getBoundingClientRect()));
   }
-  return false;
+  return best <= 320 ? best : Infinity;
+}
+
+/**
+ * Could this input hold a short code at all? Used only to decide whether a
+ * nearby "get code" button is enough on its own, so it stays conservative.
+ */
+function looksCodeShaped(input, hay) {
+  if (NOT_OTP_FIELD_RE.test(hay)) return false;
+  const maxLength = Number(input.getAttribute('maxlength')) || 0;
+  if (maxLength >= 4 && maxLength <= 8) return true;
+  if (/^(numeric|tel)$/.test(input.getAttribute('inputmode') || '')) return true;
+  const type = (input.getAttribute('type') || 'text').toLowerCase();
+  if (type === 'number' || type === 'tel') return true;
+  // A narrow box on a login form is nearly always the code, not the account.
+  return input.getBoundingClientRect().width <= 220;
 }
 
 function backgroundImageUrl(el) {
@@ -158,16 +176,32 @@ export function classifyField(input) {
     captcha += 30;
     reasons.push('name:code');
   }
-  if (!otp && !captcha) return null;
+  const buttonDistance = sendCodeButtonDistance(input);
+
+  if (!otp && !captcha) {
+    // Nothing in the markup names this field. A "获取验证码" button beside a
+    // code-shaped box is still conclusive: no other control on a page looks
+    // like that, and plenty of sites ship inputs called `input3`.
+    if (buttonDistance === Infinity) return null;
+    if (!looksCodeShaped(input, hay)) return null;
+    const score = OTP_THRESHOLD + 15 - Math.min(20, buttonDistance / 16);
+    return { kind: 'otp', score, reasons: [`send-code-button-only(${Math.round(buttonDistance)}px)`] };
+  }
 
   const image = findCaptchaImage(input);
   if (image) {
     captcha += 70;
     reasons.push(`image:${image.kind}`);
   }
-  if (hasSendCodeButton(input)) {
-    otp += 55;
-    reasons.push('send-code-button');
+  if (buttonDistance !== Infinity) {
+    // Closer to the button beats further away, so the phone field above the
+    // code field never outranks it.
+    otp += 55 - Math.min(20, buttonDistance / 16);
+    reasons.push(`send-code-button(${Math.round(buttonDistance)}px)`);
+  }
+  if (NOT_OTP_FIELD_RE.test(hay)) {
+    otp -= 60;
+    reasons.push('name:phone-or-account');
   }
 
   const maxLength = Number(input.getAttribute('maxlength')) || 0;
@@ -211,7 +245,10 @@ export function findDigitGroup(input) {
  * @returns {{otp:{input:Element,group:Element[]|null,score:number}|null,
  *            captchas:{input:Element,image:object,score:number}[]}}
  */
-export function scanPage() {
+export function scanPage({ otpOverride = '' } = {}) {
+  // A field the user pointed at wins outright — they know better than any
+  // heuristic, and they only had to do it because the heuristics missed.
+  const picked = resolveSelector(otpOverride);
   const inputs = collectInputs();
   let otpBest = null;
   const captchas = [];
@@ -238,6 +275,11 @@ export function scanPage() {
     } else {
       captchas.push({ input, image: cls.image, score: cls.score, reasons: cls.reasons });
     }
+  }
+
+  if (picked) {
+    const group = findDigitGroup(picked);
+    otpBest = { input: group ? group[0] : picked, group, score: 1000, reasons: ['manual-override'] };
   }
 
   captchas.sort((a, b) => b.score - a.score);
