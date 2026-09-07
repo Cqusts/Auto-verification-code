@@ -193,7 +193,16 @@ export async function recognizeRemote({ dataUrl, crop = null, captcha }) {
     headers['Content-Type'] = 'image/png';
   } else {
     headers['Content-Type'] = 'application/json';
-    body = JSON.stringify({ [cfg.fieldName || 'image']: base64 });
+    const payload = { [cfg.fieldName || 'image']: base64 };
+    // Constraining the alphabet at the engine beats filtering afterwards: the
+    // model then picks its best *in-alphabet* character, instead of us deleting
+    // an out-of-alphabet guess and silently shortening the answer.
+    if (cfg.sendCharset !== false) {
+      const charset = charsetFor(captcha);
+      if (charset) payload.charset = charset;
+    }
+    if (cfg.model && cfg.model !== 'default') payload.model = cfg.model;
+    body = JSON.stringify(payload);
   }
 
   let res;

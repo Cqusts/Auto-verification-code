@@ -211,6 +211,28 @@
             <label class="field"><span>请求头名</span><input type="text" data-path="captcha.http.headerName" /></label>
             <label class="field"><span>请求头值</span><input type="text" data-path="captcha.http.headerValue" /></label>
           </div>
+          <div class="grid">
+            <label class="field"><span>模型</span>
+              <select data-path="captcha.http.model">
+                <option value="default">default（默认）</option>
+                <option value="beta">beta（换一个模型试试）</option>
+              </select>
+            </label>
+          </div>
+          <p class="hint">
+            ddddocr 自带两个独立训练的模型，它们恰恰在难认的字形上会给出不同答案
+            （比如被划线穿过的 <code>v</code> 认成 <code>y</code>）。一个不准就换另一个试，
+            这比继续调预处理有用得多。
+          </p>
+          <label class="check">
+            <input type="checkbox" data-path="captcha.http.sendCharset" />
+            <span>把字符集一起发给引擎（推荐开启）</span>
+          </label>
+          <p class="hint">
+            让引擎在指定字母表内选最优解，而不是我们事后把越界字符删掉 —— 后者会把
+            「认错一个字」变成「少一个字」。站点字母表较窄时（比如纯数字）效果明显；
+            <code>v</code> / <code>y</code> 这种同在字母表内的混淆则帮不上忙。
+          </p>
           <label class="check">
             <input type="checkbox" data-path="captcha.http.preprocess" />
             <span>发送前先做预处理（默认关闭）</span>

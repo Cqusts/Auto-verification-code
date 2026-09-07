@@ -279,6 +279,8 @@ async function main() {
                   fieldName: 'image',
                   responsePath: 'result',
                   timeoutMs: 8000,
+                  sendCharset: true,
+                  model: 'default',
                 },
               },
             },
@@ -317,6 +319,10 @@ async function main() {
         }),
       ocrReceived.payload?.image);
       check('colour reaches the self-hosted engine intact', colourSurvives > 100, `coloured px=${colourSurvives}`);
+      check('the configured alphabet is sent to the engine',
+        typeof ocrReceived.payload?.charset === 'string' && ocrReceived.payload.charset.includes('7'),
+        JSON.stringify(ocrReceived.payload?.charset));
+      check('the default model is not named redundantly', ocrReceived.payload?.model === undefined, JSON.stringify(ocrReceived.payload?.model));
     } finally {
       mockOcr.close();
     }

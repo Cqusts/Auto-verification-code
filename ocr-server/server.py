@@ -43,7 +43,44 @@ parser.add_argument("--host", default="127.0.0.1")
 args = parser.parse_args()
 
 app = Flask(__name__)
-ocr = ddddocr.DdddOcr(show_ad=False)
+
+# Two independently trained models. They disagree on exactly the cases that are
+# hard — a scratched `v` read as `y`, say — so having both available and
+# switchable is worth far more than any further preprocessing.
+MODELS = {"default": ddddocr.DdddOcr(show_ad=False)}
+try:
+    MODELS["beta"] = ddddocr.DdddOcr(show_ad=False, beta=True)
+except Exception as exc:  # noqa: BLE001 - the default model still works
+    print(f"  提示：beta 模型加载失败（{exc}），只提供 default", flush=True)
+
+
+def classify(model, raw, charset):
+    """Recognises `raw`, restricted to `charset` when one is given.
+
+    Restricting at the model level is not the same as filtering afterwards:
+    the model picks its best *in-alphabet* character, whereas filtering just
+    deletes an out-of-alphabet guess and silently shortens the answer.
+    """
+    if not charset:
+        return model.classification(raw)
+    try:
+        model.set_ranges(charset)
+        result = model.classification(raw, probability=True)
+        out = ""
+        for position in result["probability"]:
+            out += result["charsets"][position.index(max(position))]
+        return out
+    except Exception:  # noqa: BLE001 - fall back to the unrestricted read
+        return model.classification(raw)
+
+
+def read_options():
+    """Per-request model and alphabet, both optional."""
+    payload = request.get_json(silent=True) if request.is_json else None
+    payload = payload or {}
+    name = str(payload.get("model") or request.args.get("model") or "default")
+    charset = payload.get("charset") or request.args.get("charset") or ""
+    return (name if name in MODELS else "default"), str(charset)
 
 
 def read_image():
@@ -75,18 +112,19 @@ def solve():
         return jsonify(result="", error=f"bad image payload: {exc}"), 400
     if not raw:
         return jsonify(result="", error="no image in request"), 400
+    model_name, charset = read_options()
     try:
-        text = ocr.classification(raw)
+        text = classify(MODELS[model_name], raw, charset)
     except Exception as exc:  # noqa: BLE001
         return jsonify(result="", error=str(exc)), 500
-    print(f"  识别 -> {text}", flush=True)
-    return jsonify(result=text)
+    print(f"  识别 -> {text}   [{model_name}{'/' + charset if charset else ''}]", flush=True)
+    return jsonify(result=text, model=model_name)
 
 
 @app.get("/")
 @app.get("/status")
 def status():
-    return jsonify(service="auto-verification-code ocr", engine="ddddocr", ok=True)
+    return jsonify(service="auto-verification-code ocr", engine="ddddocr", ok=True, models=sorted(MODELS))
 
 
 print("Auto Verification Code — 本地验证码识别服务 (ddddocr)")
@@ -98,5 +136,6 @@ print(f"    接口地址        http://127.0.0.1:{args.port}/ocr")
 print("    提交格式        JSON + base64")
 print("    字段名          image")
 print("    结果 JSON 路径  result")
+print(f"  可用模型        {', '.join(sorted(MODELS))}")
 print("")
 app.run(host=args.host, port=args.port, threaded=True)

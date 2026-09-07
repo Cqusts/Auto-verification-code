@@ -86,6 +86,10 @@ export const DEFAULT_SETTINGS = {
        * images. Turn on only for an endpoint that expects clean input.
        */
       preprocess: false,
+      /** ddddocr ships two independently trained models; they disagree on hard glyphs. */
+      model: 'default',
+      /** Send the configured alphabet so the engine constrains its own output. */
+      sendCharset: true,
       /** json-base64 | form-data | raw-body */
       format: 'json-base64',
       fieldName: 'image',
