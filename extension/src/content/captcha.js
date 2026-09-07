@@ -5,6 +5,18 @@ import { topViewportRect, isInViewport, isVisible } from './dom-utils.js';
 import { typeInto, submitFor } from './fill.js';
 import { flashField } from './overlay.js';
 
+/** Turns a raw network failure into something the user can act on. */
+function explainOcrError(error) {
+  const key = String(error || '');
+  if (key.includes('ocr-service-unreachable') || /Failed to fetch/i.test(key)) {
+    return '连不上自建识别服务，请启动它或改回内置引擎';
+  }
+  if (key.includes('ocr-service-timeout')) return '识别服务超时';
+  if (key.includes('http-ocr-url-missing')) return '自建识别接口还没填地址';
+  if (key.includes('rate-limited')) return '识别过于频繁，请稍候';
+  return `识别失败: ${key}`;
+}
+
 function waitForLoad(img, timeoutMs = 4000) {
   if (img.complete && img.naturalWidth) return Promise.resolve(true);
   return new Promise((resolve) => {
@@ -124,7 +136,7 @@ export class CaptchaSolver {
 
         const res = await sendToRuntime(MSG.REQUEST_OCR, grabbed);
         if (!res.ok) {
-          this.chip.show({ anchor: input, state: 'error', text: `识别失败: ${res.error}`, autoHideMs: 5000 });
+          this.chip.show({ anchor: input, state: 'error', text: explainOcrError(res.error), autoHideMs: 6000 });
           return { ok: false, reason: res.error };
         }
 

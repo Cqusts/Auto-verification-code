@@ -467,6 +467,15 @@ registerHandlers({
     return res.data;
   },
 
+  [MSG.TEST_OCR_HTTP]: async () => {
+    const settings = await getSettings({ fresh: true });
+    if (!settings.captcha.http?.url) throw new Error('http-ocr-url-missing');
+    await ensureOffscreen();
+    const res = await callOffscreen(MSG.TEST_OCR_ENDPOINT, { captcha: settings.captcha }, { timeoutMs: 20_000 });
+    if (!res?.ok) throw new Error(res?.error || 'ocr-test-failed');
+    return res.data;
+  },
+
   [MSG.CLEAR_HISTORY]: async () => {
     await codeStore.clear();
     await clearLogs();

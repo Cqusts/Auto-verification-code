@@ -21,6 +21,7 @@ export const MSG = {
   // offscreen <-> background
   OFFSCREEN_READY: 'off:ready',
   OCR_RUN: 'off:ocr-run',
+  TEST_OCR_ENDPOINT: 'off:test-ocr-endpoint',
   BRIDGE_CONFIGURE: 'off:bridge-configure',
   BRIDGE_STATUS: 'off:bridge-status',
   BRIDGE_MESSAGE: 'off:bridge-message',
@@ -38,6 +39,7 @@ export const MSG = {
   CLEAR_FIELD_OVERRIDE: 'ui:clear-field-override',
   TEST_BRIDGE: 'ui:test-bridge',
   TEST_OCR: 'ui:test-ocr',
+  TEST_OCR_HTTP: 'ui:test-ocr-http',
   CLEAR_HISTORY: 'ui:clear-history',
   GET_LOGS: 'ui:get-logs',
   READ_CLIPBOARD: 'ui:read-clipboard',

@@ -108,10 +108,46 @@ registerHandlers({
 
   [MSG.OCR_RUN]: async (payload) => {
     const captcha = payload.captcha || {};
-    if (captcha.provider === OCR_PROVIDER.HTTP) {
-      return recognizeRemote({ dataUrl: payload.dataUrl, crop: payload.crop, captcha });
+    if (captcha.provider !== OCR_PROVIDER.HTTP) {
+      return recognize({ dataUrl: payload.dataUrl, crop: payload.crop, captcha });
     }
-    return recognize({ dataUrl: payload.dataUrl, crop: payload.crop, captcha });
+    try {
+      return await recognizeRemote({ dataUrl: payload.dataUrl, crop: payload.crop, captcha });
+    } catch (err) {
+      // A self-hosted engine that is not answering should degrade to the one
+      // bundled with the extension, not take recognition down with it.
+      const recoverable = /ocr-service-(unreachable|timeout|http-error)/.test(err?.message || '');
+      if (!recoverable) throw err;
+      const local = await recognize({ dataUrl: payload.dataUrl, crop: payload.crop, captcha });
+      return {
+        ...local,
+        engine: 'local-fallback',
+        warning: err.message,
+        endpoint: err.endpoint || captcha.http?.url || '',
+      };
+    }
+  },
+
+  /** Round-trips a generated image so the endpoint can be checked on its own. */
+  [MSG.TEST_OCR_ENDPOINT]: async (payload) => {
+    const captcha = payload.captcha || {};
+    const canvas = document.createElement('canvas');
+    canvas.width = 120;
+    canvas.height = 44;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 26px "DejaVu Sans", Arial, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('8452', 10, 23);
+
+    const started = Date.now();
+    const result = await recognizeRemote({
+      dataUrl: canvas.toDataURL('image/png'),
+      captcha: { ...captcha, provider: OCR_PROVIDER.HTTP },
+    });
+    return { ...result, ms: Date.now() - started, expected: '8452' };
   },
 });
 

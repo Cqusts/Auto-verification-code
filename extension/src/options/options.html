@@ -211,6 +211,13 @@
             <label class="field"><span>请求头名</span><input type="text" data-path="captcha.http.headerName" /></label>
             <label class="field"><span>请求头值</span><input type="text" data-path="captcha.http.headerValue" /></label>
           </div>
+          <div class="actions">
+            <button class="btn" id="btn-test-ocr-http" type="button">测试接口</button>
+            <span class="test-result" id="result-ocr-http"></span>
+          </div>
+          <p class="hint">
+            接口连不上时会自动退回内置引擎，不会整个用不了；识别测试的结果里会标出来。
+          </p>
         </div>
 
         <div class="card">

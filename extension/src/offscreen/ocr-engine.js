@@ -192,14 +192,32 @@ export async function recognizeRemote({ dataUrl, crop = null, captcha }) {
     body = JSON.stringify({ [cfg.fieldName || 'image']: base64 });
   }
 
+  let res;
   try {
-    const res = await fetch(cfg.url, {
+    res = await fetch(cfg.url, {
       method: cfg.method || 'POST',
       headers,
       body,
       signal: controller.signal,
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (err) {
+    clearTimeout(timer);
+    // `TypeError: Failed to fetch` is what a refused connection looks like from
+    // here, and on its own it tells the user nothing at all. The overwhelmingly
+    // common cause is that the local OCR service simply is not running.
+    const reason = err?.name === 'AbortError' ? 'ocr-service-timeout' : 'ocr-service-unreachable';
+    const error = new Error(reason);
+    error.endpoint = cfg.url;
+    throw error;
+  }
+
+  try {
+    if (!res.ok) {
+      const error = new Error('ocr-service-http-error');
+      error.endpoint = cfg.url;
+      error.status = res.status;
+      throw error;
+    }
     const contentType = res.headers.get('content-type') || '';
     let text = '';
     if (contentType.includes('application/json')) {

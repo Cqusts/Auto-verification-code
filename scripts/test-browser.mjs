@@ -278,6 +278,55 @@ async function main() {
       mockOcr.close();
     }
 
+    // ---- 3d. a self-hosted engine that is not running -----------------------
+    // The failure the user hit: engine set to "自建 HTTP 接口" with nothing
+    // listening. `TypeError: Failed to fetch` reached the UI verbatim and
+    // recognition stopped working entirely.
+    {
+      const deadUrl = `http://127.0.0.1:${OCR_PORT + 7}/ocr`; // nothing listens here
+      const httpCaptcha = {
+        provider: 'http',
+        charset: 'digits',
+        expectedLength: 6,
+        http: { url: deadUrl, method: 'POST', format: 'json-base64', fieldName: 'image', responsePath: 'result', timeoutMs: 3000 },
+      };
+
+      const fell = await options.evaluate(
+        async ({ dataUrl, overrides }) =>
+          chrome.runtime.sendMessage({ type: 'ui:test-ocr', payload: { dataUrl, overrides } }),
+        { dataUrl: clean, overrides: httpCaptcha },
+      );
+      check('an unreachable OCR service falls back to the built-in engine',
+        fell?.ok === true && fell?.data?.engine === 'local-fallback', JSON.stringify(fell?.data?.engine || fell?.error));
+      check('the fallback still recognises the image', fell?.data?.text === '582617', JSON.stringify(fell?.data?.text));
+      check('the fallback reports why', /unreachable|timeout/.test(fell?.data?.warning || ''), fell?.data?.warning);
+
+      // The dedicated probe must name the cause instead of "Failed to fetch".
+      // Snapshot first: later assertions depend on these settings.
+      const savedCaptcha = await options.evaluate(async (captcha) => {
+        const got = await chrome.storage.local.get('settings');
+        const settings = got.settings || {};
+        const before = settings.captcha || {};
+        settings.captcha = { ...before, ...captcha };
+        await chrome.storage.local.set({ settings });
+        return before;
+      }, httpCaptcha);
+      const probe = await options.evaluate(() =>
+        chrome.runtime.sendMessage({ type: 'ui:test-ocr-http', payload: {} }),
+      );
+      check('the endpoint probe names the real cause',
+        /ocr-service-(unreachable|timeout)/.test(probe?.error || ''), JSON.stringify(probe));
+      check('the probe never leaks "Failed to fetch"', !/Failed to fetch/i.test(probe?.error || ''), probe?.error);
+
+      // Restore exactly what was there, so nothing downstream inherits this.
+      await options.evaluate(async (before) => {
+        const got = await chrome.storage.local.get('settings');
+        const settings = got.settings || {};
+        settings.captcha = { ...before, provider: 'local' };
+        await chrome.storage.local.set({ settings });
+      }, savedCaptcha);
+    }
+
     // ---- 4. split-box widget ------------------------------------------------
     await page.evaluate(() => {
       document.getElementById('smsCode').closest('fieldset').remove();

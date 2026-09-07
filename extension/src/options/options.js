@@ -110,6 +110,19 @@ function restoreTab() {
 // connectivity tests
 // ---------------------------------------------------------------------------
 
+/** Browser network errors say nothing useful; name the actual cause. */
+function explainOcrError(error) {
+  const key = String(error || '');
+  if (key.includes('ocr-service-unreachable')) {
+    return '连不上识别服务 —— 服务没启动？双击 start-ocr.cmd 试试';
+  }
+  if (key.includes('ocr-service-timeout')) return '识别服务超时未响应';
+  if (key.includes('ocr-service-http-error')) return '识别服务返回了错误状态码';
+  if (key.includes('http-ocr-url-missing')) return '还没填接口地址';
+  if (/Failed to fetch/i.test(key)) return '连不上识别服务（地址写错，或服务没启动）';
+  return key || '未知错误';
+}
+
 function showResult(id, ok, text) {
   const el = $(id);
   el.textContent = text;
@@ -136,6 +149,24 @@ $('btn-test-http').addEventListener('click', async () => {
   } else {
     showResult('result-http', false, `失败：${data?.error || res.error || '未知错误'}`);
   }
+});
+
+$('btn-test-ocr-http').addEventListener('click', async () => {
+  showResult('result-ocr-http', true, '测试中…');
+  const res = await sendToRuntime(MSG.TEST_OCR_HTTP);
+  if (!res.ok) {
+    showResult('result-ocr-http', false, `失败：${explainOcrError(res.error)}`);
+    return;
+  }
+  const data = res.data;
+  const right = data.text === data.expected;
+  showResult(
+    'result-ocr-http',
+    right,
+    right
+      ? `接口正常（${data.ms}ms，识别出 ${data.text}）`
+      : `接口能连上（${data.ms}ms），但把 ${data.expected} 识别成了「${data.text || '空'}」`,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -165,11 +196,18 @@ async function runOcrTest(dataUrl) {
 
   const res = await sendToRuntime(MSG.TEST_OCR, { dataUrl });
   if (!res.ok) {
-    $('ocr-text').textContent = `识别失败：${res.error}`;
+    $('ocr-text').textContent = `识别失败：${explainOcrError(res.error)}`;
     return;
   }
   const data = res.data;
   if (data.preview) $('ocr-prep').src = data.preview;
+  if (data.engine === 'local-fallback') {
+    showResult(
+      'result-ocr-http',
+      false,
+      `自建接口不可用（${explainOcrError(data.warning)}），本次已退回内置引擎`,
+    );
+  }
   $('ocr-text').innerHTML = data.text
     ? `识别结果：<strong>${escapeHtml(data.text)}</strong> · 置信度 ${data.confidence}% · 方案 ${escapeHtml(data.variant)} · 尝试 ${data.attempts} 次`
     : `未识别出字符（置信度 ${data.confidence}%）`;
