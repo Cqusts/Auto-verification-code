@@ -208,6 +208,23 @@ export function preprocess(bitmap, crop, opts = {}, { invert = false, binarize =
   return canvas;
 }
 
+/**
+ * The image as-is, cropped if a region was given, with nothing else touched.
+ *
+ * For engines trained on raw CAPTCHAs — ddddocr and friends — every step of our
+ * clean-up destroys signal they were trained to use. A pink background with a
+ * green glyph separates by *colour*; convert it to luminance first and the glyph
+ * merges into the background and is simply gone.
+ */
+export function cropOnly(bitmap, crop) {
+  if (!crop) {
+    const canvas = toCanvas(bitmap.width, bitmap.height);
+    canvas.getContext('2d').drawImage(bitmap, 0, 0);
+    return canvas;
+  }
+  return cropBitmap(bitmap, crop);
+}
+
 export function canvasToDataUrl(canvas) {
   return canvas.toDataURL('image/png');
 }

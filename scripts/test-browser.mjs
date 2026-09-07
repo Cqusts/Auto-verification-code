@@ -244,6 +244,21 @@ async function main() {
     // ---- 3c. the self-hosted OCR contract ----------------------------------
     // ocr-server/server.py cannot run here (no flask), so pin the half we own:
     // what the extension sends, and how it reads the reply back.
+    // Pink ground, green glyph: separable by colour, nearly identical in luma.
+    const colourful = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 120;
+      canvas.height = 44;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#f4a6d0';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#2f9e44';
+      ctx.font = 'bold 26px "DejaVu Sans", Arial, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('uw6', 10, 23);
+      return canvas.toDataURL('image/png');
+    });
+
     const ocrReceived = {};
     const mockOcr = await startMockOcr(OCR_PORT, ocrReceived);
     try {
@@ -268,12 +283,40 @@ async function main() {
               },
             },
           }),
-        { dataUrl: clean, url: `http://127.0.0.1:${OCR_PORT}/ocr` },
+        { dataUrl: colourful, url: `http://127.0.0.1:${OCR_PORT}/ocr` },
       );
       check('http OCR posts JSON', ocrReceived.contentType.includes('application/json'), ocrReceived.contentType);
+      check('http OCR reports no invented confidence', remote?.data?.confidence == null, JSON.stringify(remote?.data?.confidence));
+      check('http OCR marks the image as unprocessed', remote?.data?.variant === 'http-raw', remote?.data?.variant);
       check('http OCR sends base64 under the configured field', typeof ocrReceived.payload?.image === 'string' && ocrReceived.payload.image.length > 100);
       check('http OCR sends no data: prefix', !String(ocrReceived.payload?.image || '').startsWith('data:'));
       check('http OCR reads the configured response path', remote?.data?.text === 'A7c2', JSON.stringify(remote?.data));
+      // A glyph that is only distinguishable by colour must still be there in
+      // what we send: greyscaling first is exactly what lost it before.
+      const colourSurvives = await page.evaluate((base64) =>
+        new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width;
+            c.height = img.height;
+            const cx = c.getContext('2d');
+            cx.drawImage(img, 0, 0);
+            const { data } = cx.getImageData(0, 0, c.width, c.height);
+            let coloured = 0;
+            for (let i = 0; i < data.length; i += 4) {
+              // Any pixel whose channels disagree still carries colour.
+              if (Math.max(data[i], data[i + 1], data[i + 2]) - Math.min(data[i], data[i + 1], data[i + 2]) > 30) {
+                coloured += 1;
+              }
+            }
+            resolve(coloured);
+          };
+          img.onerror = () => resolve(-1);
+          img.src = `data:image/png;base64,${base64}`;
+        }),
+      ocrReceived.payload?.image);
+      check('colour reaches the self-hosted engine intact', colourSurvives > 100, `coloured px=${colourSurvives}`);
     } finally {
       mockOcr.close();
     }

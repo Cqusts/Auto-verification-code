@@ -143,7 +143,10 @@ export class CaptchaSolver {
         last = res.data;
         const expected = Number(settings.captcha.expectedLength) || 0;
         const lengthOk = expected === 0 ? last.text.length >= 3 : last.text.length === expected;
-        const confident = last.confidence >= (settings.captcha.minConfidence ?? 60);
+        // A self-hosted engine reports no confidence at all, so the length check
+        // is the only gate there — treating "no number" as "below threshold"
+        // would mean never filling anything.
+        const confident = last.confidence == null || last.confidence >= (settings.captcha.minConfidence ?? 60);
 
         if (last.text && lengthOk && (confident || manual)) {
           this.solvedFor.set(image.el, last.text);
@@ -174,7 +177,10 @@ export class CaptchaSolver {
     this.chip.show({
       anchor: input,
       state,
-      text: `识别为 ${result.text}（置信度 ${result.confidence}%）`,
+      text:
+        result.confidence == null
+          ? `识别为 ${result.text}`
+          : `识别为 ${result.text}（置信度 ${result.confidence}%）`,
       action: { label: '采用', onClick: () => this.apply(input, result, settings) },
       autoHideMs: 12000,
     });
@@ -186,7 +192,7 @@ export class CaptchaSolver {
     this.chip.show({
       anchor: input,
       state: 'done',
-      text: `已填入 ${result.text}（${result.confidence}%）`,
+      text: result.confidence == null ? `已填入 ${result.text}` : `已填入 ${result.text}（${result.confidence}%）`,
       autoHideMs: 3500,
     });
     if (settings.captcha.autoSubmit) submitFor(input);

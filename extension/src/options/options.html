@@ -211,6 +211,15 @@
             <label class="field"><span>请求头名</span><input type="text" data-path="captcha.http.headerName" /></label>
             <label class="field"><span>请求头值</span><input type="text" data-path="captcha.http.headerValue" /></label>
           </div>
+          <label class="check">
+            <input type="checkbox" data-path="captcha.http.preprocess" />
+            <span>发送前先做预处理（默认关闭）</span>
+          </label>
+          <p class="hint">
+            ddddocr 这类模型是拿<strong>原始验证码图</strong>训练的，会自己处理背景和干扰线。
+            先灰度化反而会抹掉它依赖的颜色信息 —— 比如粉底绿字，转成灰度后字就和背景糊在一起了。
+            只有当你的接口明确需要干净输入时才打开。
+          </p>
           <div class="actions">
             <button class="btn" id="btn-test-ocr-http" type="button">测试接口</button>
             <span class="test-result" id="result-ocr-http"></span>
@@ -230,7 +239,7 @@
           <div class="test-out" id="ocr-out" hidden>
             <div class="test-out__imgs">
               <figure><img id="ocr-src" alt="原图" /><figcaption>原图</figcaption></figure>
-              <figure><img id="ocr-prep" alt="预处理结果" /><figcaption>预处理后</figcaption></figure>
+              <figure><img id="ocr-prep" alt="实际送去识别的图" /><figcaption id="ocr-prep-caption">预处理后</figcaption></figure>
             </div>
             <p class="test-out__text" id="ocr-text"></p>
           </div>

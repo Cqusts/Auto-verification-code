@@ -1,6 +1,6 @@
 import { CHARSETS } from '../common/patterns.js';
 import { sanitizeOcrText } from '../common/code-extract.js';
-import { decodeImage, preprocess, canvasToDataUrl } from './image-lab.js';
+import { decodeImage, preprocess, cropOnly, canvasToDataUrl } from './image-lab.js';
 
 const paths = {
   worker: chrome.runtime.getURL('vendor/tesseract/worker.min.js'),
@@ -166,9 +166,13 @@ export async function recognizeRemote({ dataUrl, crop = null, captcha }) {
   const cfg = captcha.http || {};
   if (!cfg.url) throw new Error('http-ocr-url-missing');
 
-  // Still pre-process: remote engines benefit from the same clean-up.
+  // Send the image untouched unless asked otherwise. A model trained on raw
+  // CAPTCHAs does its own preprocessing, and ours only removes information it
+  // relies on — colour separation above all.
   const bitmap = await decodeImage(dataUrl);
-  const canvas = preprocess(bitmap, crop, { ...captcha.preprocess, binarize: false, scale: 2 });
+  const canvas = cfg.preprocess
+    ? preprocess(bitmap, crop, { ...captcha.preprocess, binarize: false, scale: 2 })
+    : cropOnly(bitmap, crop);
   bitmap.close?.();
   const cleanedDataUrl = canvasToDataUrl(canvas);
   const base64 = cleanedDataUrl.split(',')[1];
@@ -229,9 +233,11 @@ export async function recognizeRemote({ dataUrl, crop = null, captcha }) {
     const charset = charsetFor(captcha);
     return {
       text: sanitizeOcrText(text, { charset, expectedLength: Number(captcha.expectedLength) || 0 }),
-      confidence: text ? 90 : 0,
+      // A self-hosted engine reports no confidence, and inventing one puts a
+      // reassuring number next to answers that may be wrong. Say so instead.
+      confidence: null,
       attempts: 1,
-      variant: 'http',
+      variant: cfg.preprocess ? 'http' : 'http-raw',
       preview: cleanedDataUrl,
       engine: 'http',
     };

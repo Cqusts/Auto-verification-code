@@ -81,6 +81,11 @@ export const DEFAULT_SETTINGS = {
     http: {
       url: '',
       method: 'POST',
+      /**
+       * Off by default: ddddocr and similar are trained on untouched CAPTCHA
+       * images. Turn on only for an endpoint that expects clean input.
+       */
+      preprocess: false,
       /** json-base64 | form-data | raw-body */
       format: 'json-base64',
       fieldName: 'image',

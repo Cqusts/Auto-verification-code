@@ -201,6 +201,10 @@ async function runOcrTest(dataUrl) {
   }
   const data = res.data;
   if (data.preview) $('ocr-prep').src = data.preview;
+  // With preprocessing off this picture *is* the original, so do not call it
+  // "预处理后" — the label has to say what was actually sent.
+  $('ocr-prep-caption').textContent =
+    data.engine === 'http' && data.variant === 'http-raw' ? '实际发送（未预处理）' : '预处理后';
   if (data.engine === 'local-fallback') {
     showResult(
       'result-ocr-http',
@@ -208,9 +212,10 @@ async function runOcrTest(dataUrl) {
       `自建接口不可用（${explainOcrError(data.warning)}），本次已退回内置引擎`,
     );
   }
+  const confidence = data.confidence == null ? '置信度 不适用（自建引擎不返回）' : `置信度 ${data.confidence}%`;
   $('ocr-text').innerHTML = data.text
-    ? `识别结果：<strong>${escapeHtml(data.text)}</strong> · 置信度 ${data.confidence}% · 方案 ${escapeHtml(data.variant)} · 尝试 ${data.attempts} 次`
-    : `未识别出字符（置信度 ${data.confidence}%）`;
+    ? `识别结果：<strong>${escapeHtml(data.text)}</strong> · ${confidence} · 方案 ${escapeHtml(data.variant)} · 尝试 ${data.attempts} 次`
+    : `未识别出字符（${confidence}）`;
 }
 
 function escapeHtml(text) {
